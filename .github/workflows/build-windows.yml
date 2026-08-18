@@ -43,7 +43,7 @@ jobs:
           Rebuild-Zip 'patches/v0.8-artfix/chunks/part*.txt' 1 'patches/CirosPaint_0.8_artfix.zip' '3947092144570548e962b354ec0b7d6fa7b1f6416a2e0fbafa656b450945cbad'
           tar -xf patches/CirosPaint_0.8_artfix.zip -C build_source
 
-          Rebuild-Zip 'patches/v0.8.1/chunks/part*.txt' 8 'patches/CirosPaint_0.8.1.zip' 'ed47500df62010bb9d9f5fb26d09b1174a84787eb80d50c3251db3d433d7ce02'
+          Rebuild-Zip 'patches/v0.8.1/chunks/part*.txt' 9 'patches/CirosPaint_0.8.1.zip' 'ed47500df62010bb9d9f5fb26d09b1174a84787eb80d50c3251db3d433d7ce02'
           tar -xf patches/CirosPaint_0.8.1.zip -C build_source
 
       - name: Set up paint catalog and dependencies
