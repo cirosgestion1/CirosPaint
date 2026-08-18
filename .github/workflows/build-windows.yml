@@ -20,15 +20,13 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Rebuild and verify source package
+      - name: Rebuild and verify Ciros Paint 0.3 source
         shell: pwsh
         run: |
-          $parts = Get-ChildItem 'source/chunks/part*.txt' | Sort-Object Name
-          if ($parts.Count -ne 7) { throw "Expected 7 source chunks, found $($parts.Count)." }
-          $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
-          [IO.File]::WriteAllBytes('source/CirosPaint_0.2.rebuilt.zip', [Convert]::FromBase64String($b64))
-          $hash = (Get-FileHash 'source/CirosPaint_0.2.rebuilt.zip' -Algorithm SHA256).Hash.ToLower()
-          if ($hash -ne '24ef8b40eb40081ff486adbf8839795ea92796154e65a0d50cb7bb0dd2b1550e') {
+          $b64 = (Get-Content 'source/v0.3/CirosPaint_0.3_source.b64' -Raw).Trim()
+          [IO.File]::WriteAllBytes('source/CirosPaint_0.3.rebuilt.zip', [Convert]::FromBase64String($b64))
+          $hash = (Get-FileHash 'source/CirosPaint_0.3.rebuilt.zip' -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne '43d0a33cb1c18c10ccb13feb302a2e841afbdfabb1f8d53b6a1a48956d9e4190') {
             throw "Source ZIP hash mismatch: $hash"
           }
           Write-Host "Verified source SHA256: $hash"
@@ -37,7 +35,15 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path build_source | Out-Null
-          tar -xf source/CirosPaint_0.2.rebuilt.zip -C build_source
+          tar -xf source/CirosPaint_0.3.rebuilt.zip -C build_source
+
+      - name: Set up paint catalog source
+        shell: pwsh
+        run: |
+          git init catalog_source
+          git -C catalog_source remote add origin https://github.com/Arcturus5404/miniature-paints.git
+          git -C catalog_source fetch --depth 1 origin 22791a682e1d155da388f4f856cd7196cd9f2677
+          git -C catalog_source checkout FETCH_HEAD
 
       - name: Install dependencies
         shell: pwsh
@@ -47,18 +53,25 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install pyinstaller
 
-      - name: Run database tests
+      - name: Build embedded paint catalog
+        shell: pwsh
+        working-directory: build_source/CirosPaint
+        run: |
+          python tools/build_paint_catalog.py "$env:GITHUB_WORKSPACE\catalog_source" app/data/paint_catalog.json
+          python -c "import json, pathlib; p=pathlib.Path('app/data/paint_catalog.json'); d=json.loads(p.read_text(encoding='utf-8')); assert len(d) > 500; assert any(x['brand']=='Vallejo' and x['name']=='Ice Yellow' and x['code']=='70.858' for x in d); print('Catalog entries:', len(d))"
+
+      - name: Run tests
         shell: pwsh
         working-directory: build_source/CirosPaint
         run: |
           $env:PYTHONPATH = (Get-Location).Path
-          python tests/test_database.py
+          python -m unittest discover -s tests -v
 
       - name: Build CirosPaint.exe
         shell: pwsh
         working-directory: build_source/CirosPaint
         run: |
-          python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint main.py
+          python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint --add-data "app/data/paint_catalog.json;app/data" --add-data "THIRD_PARTY_NOTICES.txt;." main.py
 
       - name: Smoke-check executable exists
         shell: pwsh
@@ -70,7 +83,7 @@ jobs:
       - name: Upload Windows executable
         uses: actions/upload-artifact@v4
         with:
-          name: CirosPaint-Windows-0.2
+          name: CirosPaint-Windows-0.3
           path: build_source/CirosPaint/dist/CirosPaint.exe
           if-no-files-found: error
           retention-days: 30
