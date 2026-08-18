@@ -53,6 +53,20 @@ jobs:
           tar -xf patches/CirosPaint_0.7.patch.zip -C build_source
           Write-Host "Verified and applied Ciros Paint 0.7 patch SHA256: $hash"
 
+      - name: Rebuild and apply Ciros Paint 0.8 patch
+        shell: pwsh
+        run: |
+          $parts = Get-ChildItem 'patches/v0.8/chunks/part*.txt' | Sort-Object Name
+          if ($parts.Count -ne 4) { throw "Expected 4 patch chunks, found $($parts.Count)." }
+          $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
+          [IO.File]::WriteAllBytes('patches/CirosPaint_0.8.patch.zip', [Convert]::FromBase64String($b64))
+          $hash = (Get-FileHash 'patches/CirosPaint_0.8.patch.zip' -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne 'b30570d26f44aa0e5bf2727910396628e4ab8fc646ddacd49527991cde8d3b90') {
+            throw "Patch ZIP hash mismatch: $hash"
+          }
+          tar -xf patches/CirosPaint_0.8.patch.zip -C build_source
+          Write-Host "Verified and applied Ciros Paint 0.8 patch SHA256: $hash"
+
       - name: Set up paint catalog and brand logos
         shell: pwsh
         run: |
@@ -82,7 +96,19 @@ jobs:
         run: |
           $env:PYTHONPATH = (Get-Location).Path
           python tools/build_paint_catalog.py "$env:GITHUB_WORKSPACE\catalog_source" app/data/paint_catalog.json
-          python -c "import json, pathlib; d=json.loads(pathlib.Path('app/data/paint_catalog.json').read_text(encoding='utf-8')); assert len(d)>500; assert any(x['brand']=='Vallejo' and x['name']=='Ice Yellow' and x['code']=='70.858' for x in d); assert any(x['brand']=='AK Interactive' and x['name']=='Admirality Light Grey' and x['code']=='AK5035' for x in d); assert any(x['brand']=='Citadel' and x['name']=='Abaddon Black' for x in d); print('Catalog entries:', len(d))"
+          python -c "import json, pathlib; d=json.loads(pathlib.Path('app/data/paint_catalog.json').read_text(encoding='utf-8')); assert len(d)>500; assert any(x['brand']=='Vallejo' and x['name']=='Ice Yellow' and x['code']=='70.858' for x in d); assert any(x['brand']=='AK Interactive' and x['name']=='Admirality Light Grey' and x['code']=='AK5035' for x in d); assert any(x['brand']=='Citadel' and x['name']=='Abaddon Black' for x in d); print('Paint catalog entries:', len(d))"
+
+      - name: Download official miniature artwork
+        shell: pwsh
+        working-directory: build_source
+        run: |
+          $env:PYTHONPATH = (Get-Location).Path
+          python tools/download_miniature_assets.py
+          if (!(Test-Path 'app/assets/miniatures/games/star_wars_legion.webp')) { throw 'Selected Star Wars Legion banner missing' }
+          if (!(Test-Path 'app/assets/miniatures/games/age_of_sigmar.jpg')) { throw 'Selected Age of Sigmar banner missing' }
+          $count = (Get-ChildItem 'app/assets/miniatures' -File -Recurse).Count
+          Write-Host "Miniature artwork files: $count"
+          if ($count -lt 20) { throw "Expected at least 20 miniature artwork files, found $count" }
 
       - name: Run tests
         shell: pwsh
@@ -91,18 +117,18 @@ jobs:
           $env:PYTHONPATH = (Get-Location).Path
           python -m unittest discover -s tests -v
 
-      - name: Materials UI smoke test
+      - name: Ciros Paint 0.8 UI smoke test
         shell: pwsh
         working-directory: build_source
         run: |
           $env:QT_QPA_PLATFORM = 'offscreen'
-          python -c "from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.db.database import init_database; init_database(); from app.ui.dialogs.material_dialog import MaterialDialog; from app.ui.pages.materials_page import MaterialsPage; from app.ui.pages.shopping_page import ShoppingPage; from app.ui.material_visuals import BrandBadge, MaterialCategoryIcon; d=MaterialDialog(brands=['Vallejo','Citadel','AK Interactive','Patata']); d.name.setText('Prueba'); d.category.setCurrentText('Pegamento'); assert d.brand.isHidden(); assert not d.glue_type.isHidden(); assert d.data()['brand'] is None; d.category.setCurrentText('Pincel'); d.brand.setCurrentText('Patata'); assert not d.brand.isHidden(); assert d.glue_type.isHidden(); assert d.data()['brand']=='Patata'; d.category.setCurrentText('Imprimación'); assert not d.primer_format.isHidden(); assert BrandBadge('Una marca personalizada muy larga').text()=='◇'; MaterialCategoryIcon('Terreno / Texturas'); m=MaterialsPage(); assert len(m.category_chips)==7; s=ShoppingPage(); assert s.table.columnCount()==6; print('Ciros Paint 0.7 materials UI smoke test OK')"
+          python -c "from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.db.database import init_database; init_database(); from app.ui.pages.materials_page import MaterialsPage; from app.ui.pages.miniatures_page import MiniaturesPage; from app.services.miniature_catalog_service import MiniatureCatalogService; m=MaterialsPage(); assert m.add_cart_btn.text()=='🛒 Añadir'; p=MiniaturesPage(); assert len(p.game_banners)==2; assert [b.game['name'] for b in p.game_banners]==['Star Wars: Legion','Age of Sigmar']; p.open_game('Star Wars: Legion'); assert len(MiniatureCatalogService.factions('Star Wars: Legion'))==6; p.open_faction('Imperio Galáctico'); assert p.collection_title.text()=='Imperio Galáctico'; from app.ui.main_window import MainWindow; w=MainWindow(); texts=[b.text() for b in w.group.buttons()]; assert texts.index('▣  Compras') < texts.index('♟  Miniaturas'); print('Ciros Paint 0.8 UI smoke test OK')"
 
       - name: Build CirosPaint.exe
         shell: pwsh
         working-directory: build_source
         run: |
-          python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint --add-data "app/data/paint_catalog.json;app/data" --add-data "app/assets/brands;app/assets/brands" --add-data "THIRD_PARTY_NOTICES.txt;." main.py
+          python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint --add-data "app/data/paint_catalog.json;app/data" --add-data "app/data/miniature_catalog.json;app/data" --add-data "app/assets/brands;app/assets/brands" --add-data "app/assets/miniatures;app/assets/miniatures" --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "MINIATURE_ASSET_SOURCES.md;." main.py
 
       - name: Smoke-check executable exists
         shell: pwsh
@@ -114,7 +140,7 @@ jobs:
       - name: Upload Windows executable
         uses: actions/upload-artifact@v4
         with:
-          name: CirosPaint-Windows-0.7
+          name: CirosPaint-Windows-0.8
           path: build_source/dist/CirosPaint.exe
           if-no-files-found: error
           retention-days: 30
