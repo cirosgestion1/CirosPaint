@@ -46,6 +46,7 @@ jobs:
           Rebuild-Zip 'patches/v0.8.1/chunks/part*.txt' 9 'patches/CirosPaint_0.8.1.zip' 'ed47500df62010bb9d9f5fb26d09b1174a84787eb80d50c3251db3d433d7ce02'
           tar -xf patches/CirosPaint_0.8.1.zip -C build_source
 
+          python -c "from pathlib import Path; p=Path(r'patches/v0.8.2/CirosPaint_0.8.2.patch'); p.write_bytes(p.read_text(encoding='utf-8').encode('utf-8'))"
           git apply --directory=build_source patches/v0.8.2/CirosPaint_0.8.2.patch
           if ($LASTEXITCODE -ne 0) { throw 'Could not apply Ciros Paint 0.8.2 patch' }
           Write-Host 'Applied Ciros Paint 0.8.2 text patch'
