@@ -50,7 +50,9 @@ jobs:
       - name: Run database tests
         shell: pwsh
         working-directory: build_source/CirosPaint
-        run: python tests/test_database.py
+        run: |
+          $env:PYTHONPATH = (Get-Location).Path
+          python tests/test_database.py
 
       - name: Build CirosPaint.exe
         shell: pwsh
