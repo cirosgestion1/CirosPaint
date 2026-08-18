@@ -17,31 +17,18 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Rebuild Ciros Paint 0.8 source
+      - name: Rebuild verified Ciros Paint 0.8.1 source
         shell: pwsh
         run: |
-          function Rebuild-Zip($pattern, $expectedCount, $output, $expectedHash) {
-            $parts = Get-ChildItem $pattern | Sort-Object Name
-            if ($parts.Count -ne $expectedCount) { throw "Unexpected chunk count for ${pattern}: $($parts.Count)" }
-            $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
-            [IO.File]::WriteAllBytes($output, [Convert]::FromBase64String($b64))
-            $hash = (Get-FileHash $output -Algorithm SHA256).Hash.ToLower()
-            if ($hash -ne $expectedHash) { throw "Hash mismatch for ${output}: $hash" }
-            Write-Host "Verified $output $hash"
-          }
-
-          Rebuild-Zip 'source/v0.6/chunks/part*.txt' 7 'source/CirosPaint_0.6.zip' '6e49c42e7d3ccfcf219ea24f164a8c436c7875eb56084318242dcb3171337b94'
+          $parts = Get-ChildItem 'source/v0.8.1/chunks/part*.txt' | Sort-Object Name
+          if ($parts.Count -ne 1) { throw "Expected 1 source chunk, found $($parts.Count)" }
+          $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
+          [IO.File]::WriteAllBytes('source/CirosPaint_0.8.1.zip', [Convert]::FromBase64String($b64))
+          $hash = (Get-FileHash 'source/CirosPaint_0.8.1.zip' -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne '9b32f08053eeb48311a75083cbd20d2ab7c3c17761781bdace40b250f4f12287') { throw "Source ZIP hash mismatch: $hash" }
           New-Item -ItemType Directory -Force build_source | Out-Null
-          tar -xf source/CirosPaint_0.6.zip -C build_source
-
-          Rebuild-Zip 'patches/v0.7/chunks/part*.txt' 5 'patches/CirosPaint_0.7.zip' 'aa0d1fc99b0770425081f0e18cbb399440cab77768ea36887d33038947721620'
-          tar -xf patches/CirosPaint_0.7.zip -C build_source
-
-          Rebuild-Zip 'patches/v0.8/chunks/part*.txt' 4 'patches/CirosPaint_0.8.zip' 'b30570d26f44aa0e5bf2727910396628e4ab8fc646ddacd49527991cde8d3b90'
-          tar -xf patches/CirosPaint_0.8.zip -C build_source
-
-          Rebuild-Zip 'patches/v0.8-artfix/chunks/part*.txt' 1 'patches/CirosPaint_0.8_artfix.zip' '3947092144570548e962b354ec0b7d6fa7b1f6416a2e0fbafa656b450945cbad'
-          tar -xf patches/CirosPaint_0.8_artfix.zip -C build_source
+          tar -xf source/CirosPaint_0.8.1.zip -C build_source
+          Write-Host "Verified Ciros Paint 0.8.1 source SHA256: $hash"
 
       - name: Set up paint catalog and dependencies
         shell: pwsh
@@ -59,21 +46,22 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install pyinstaller
 
-      - name: Build embedded catalogs and official artwork
+      - name: Build catalogs and official miniature artwork
         shell: pwsh
         working-directory: build_source
         run: |
           $env:PYTHONPATH = (Get-Location).Path
           python tools/build_paint_catalog.py "$env:GITHUB_WORKSPACE\catalog_source" app/data/paint_catalog.json
           python tools/download_miniature_assets.py
-          python -c "import json,pathlib; p=json.loads(pathlib.Path('app/data/paint_catalog.json').read_text(encoding='utf-8')); m=json.loads(pathlib.Path('app/data/miniature_catalog.json').read_text(encoding='utf-8')); assert len(p)>500; assert sum(len(f['units']) for g in m['games'] for f in g['factions'])>500; print('Catalogs OK')"
+          python -c "import json,pathlib; p=json.loads(pathlib.Path('app/data/paint_catalog.json').read_text(encoding='utf-8')); m=json.loads(pathlib.Path('app/data/miniature_catalog.json').read_text(encoding='utf-8')); assert len(p)>500; assert m.get('catalog_revision')=='0.8.1'; assert sum(len(f['units']) for g in m['games'] for f in g['factions'])>500; print('Catalogs OK')"
           if (!(Test-Path 'app/assets/miniatures/games/star_wars_legion.webp')) { throw 'Star Wars Legion banner missing' }
-          if (!(Test-Path 'app/assets/miniatures/games/age_of_sigmar.jpg')) { throw 'Age of Sigmar banner missing' }
-          if (!(Test-Path 'app/assets/miniatures/factions/sw_mercenaries.png')) { throw 'Mercenary artwork missing' }
-          if (!(Test-Path 'app/assets/miniatures/factions/sw_mandalorians.png')) { throw 'Mandalorian artwork missing' }
-          $count = (Get-ChildItem app/assets/miniatures -File -Recurse).Count
-          if ($count -lt 33) { throw "Expected all 33 miniature artwork files, found $count" }
-          Write-Host "Official miniature artwork files: $count/33"
+          if (!(Test-Path 'app/assets/miniatures/games/age_of_sigmar_battle.jpg')) { throw 'Age of Sigmar battle banner missing' }
+          foreach ($icon in @('sw_empire.svg','sw_rebels.svg','sw_republic.svg','sw_separatists.svg','sw_mercenaries.svg','sw_mandalorians.svg')) {
+            if (!(Test-Path "app/assets/miniatures/icons/$icon")) { throw "Faction icon missing: $icon" }
+          }
+          foreach ($art in @('swq11-stormtroopers.webp','swq12-scout-troopers.webp','swq103-commander-darth-vader-and-general-veers.webp','swq207-74-z-speeder-bike.webp','swq205-imperial-death-troopers.webp')) {
+            if (!(Test-Path "app/assets/miniatures/products/legion/$art")) { throw "Legion unit artwork missing: $art" }
+          }
 
       - name: Run tests
         shell: pwsh
@@ -87,7 +75,8 @@ jobs:
         working-directory: build_source
         run: |
           $env:QT_QPA_PLATFORM = 'offscreen'
-          python -c "from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.db.database import init_database; init_database(); from app.ui.pages.materials_page import MaterialsPage; from app.ui.pages.miniatures_page import MiniaturesPage; from app.services.miniature_catalog_service import MiniatureCatalogService; m=MaterialsPage(); assert m.add_cart_btn.text()=='🛒 Añadir'; p=MiniaturesPage(); assert [b.game['name'] for b in p.game_banners]==['Star Wars: Legion','Age of Sigmar']; p.open_game('Star Wars: Legion'); assert len(MiniatureCatalogService.factions('Star Wars: Legion'))==6; p.open_faction('Imperio Galáctico'); assert p.collection_title.text()=='Imperio Galáctico'; from app.ui.main_window import MainWindow; w=MainWindow(); texts=[b.text() for b in w.group.buttons()]; assert texts.index('▣  Compras') < texts.index('♟  Miniaturas'); print('Ciros Paint 0.8 UI smoke test OK')"
+          $env:PYTHONPATH = (Get-Location).Path
+          python -c "from types import SimpleNamespace; from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.db.database import init_database; init_database(); from app.ui.pages.miniatures_page import MiniaturesPage,UnitCard; from app.services.miniature_catalog_service import MiniatureCatalogService; p=MiniaturesPage(); assert [b.game['name'] for b in p.game_banners]==['Star Wars: Legion','Age of Sigmar']; fac=MiniatureCatalogService.faction('Star Wars: Legion','Imperio Galáctico'); unit=MiniatureCatalogService.unit('Star Wars: Legion','Imperio Galáctico','Stormtroopers'); entry=SimpleNamespace(id=1,unit_name='Stormtroopers',total_count=6); card=UnitCard(entry,unit,fac); assert card.art.has_unit_art; assert card.faction_icon_asset==fac['icon_asset']; blank=UnitCard(entry,{'primary_role':'Tropas','image_asset':None},{'image_asset':fac['image_asset'],'icon_asset':fac['icon_asset']}); assert not blank.art.has_unit_art; assert blank.unit_image_asset is None; from app.core.config import APP_VERSION; assert APP_VERSION=='0.8.1'; print('Ciros Paint 0.8.1 UI smoke test OK')"
 
       - name: Build CirosPaint.exe
         shell: pwsh
@@ -99,7 +88,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CirosPaint-Windows-0.8
+          name: CirosPaint-Windows-0.8.1
           path: build_source/dist/CirosPaint.exe
           if-no-files-found: error
           retention-days: 30
