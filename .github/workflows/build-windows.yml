@@ -20,11 +20,24 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Rebuild and verify source package
+        shell: pwsh
+        run: |
+          $parts = Get-ChildItem 'source/chunks/part*.txt' | Sort-Object Name
+          if ($parts.Count -ne 7) { throw "Expected 7 source chunks, found $($parts.Count)." }
+          $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
+          [IO.File]::WriteAllBytes('source/CirosPaint_0.2.rebuilt.zip', [Convert]::FromBase64String($b64))
+          $hash = (Get-FileHash 'source/CirosPaint_0.2.rebuilt.zip' -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne '24ef8b40eb40081ff486adbf8839795ea92796154e65a0d50cb7bb0dd2b1550e') {
+            throw "Source ZIP hash mismatch: $hash"
+          }
+          Write-Host "Verified source SHA256: $hash"
+
       - name: Extract source
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path build_source | Out-Null
-          tar -xf source/CirosPaint_0.2.zip -C build_source
+          tar -xf source/CirosPaint_0.2.rebuilt.zip -C build_source
 
       - name: Install dependencies
         shell: pwsh
