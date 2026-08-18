@@ -1,0 +1,7 @@
+Ciros Paint uses paint-catalog data derived at build time from:
+
+Arcturus5404/miniature-paints
+https://github.com/Arcturus5404/miniature-paints
+MIT License
+
+The catalog contains approximate RGB/HEX references and product metadata. Manufacturer product names and trademarks remain the property of their respective owners.
