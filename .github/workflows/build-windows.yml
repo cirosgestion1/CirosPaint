@@ -20,44 +20,24 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Rebuild verified Ciros Paint 0.4 source
+      - name: Rebuild and verify Ciros Paint 0.6 source
         shell: pwsh
         run: |
-          $parts = Get-ChildItem 'source/v0.4/chunks/part*.txt' | Sort-Object Name
-          if ($parts.Count -ne 5) { throw "Expected 5 source chunks, found $($parts.Count)." }
+          $parts = Get-ChildItem 'source/v0.6/chunks/part*.txt' | Sort-Object Name
+          if ($parts.Count -ne 7) { throw "Expected 7 source chunks, found $($parts.Count)." }
           $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
-          [IO.File]::WriteAllBytes('source/CirosPaint_0.4.rebuilt.zip', [Convert]::FromBase64String($b64))
-          $hash = (Get-FileHash 'source/CirosPaint_0.4.rebuilt.zip' -Algorithm SHA256).Hash.ToLower()
-          if ($hash -ne '95b07d62152398438a127686eb4560952bd1ea2412f39267cce98c149365bff1') {
+          [IO.File]::WriteAllBytes('source/CirosPaint_0.6.rebuilt.zip', [Convert]::FromBase64String($b64))
+          $hash = (Get-FileHash 'source/CirosPaint_0.6.rebuilt.zip' -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne '6e49c42e7d3ccfcf219ea24f164a8c436c7875eb56084318242dcb3171337b94') {
             throw "Source ZIP hash mismatch: $hash"
           }
-          Write-Host "Verified Ciros Paint 0.4 source SHA256: $hash"
+          Write-Host "Verified Ciros Paint 0.6 source SHA256: $hash"
 
-      - name: Extract source base
+      - name: Extract source
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path build_source | Out-Null
-          tar -xf source/CirosPaint_0.4.rebuilt.zip -C build_source
-
-      - name: Rebuild and apply Ciros Paint 0.5 patch
-        shell: pwsh
-        run: |
-          $parts = Get-ChildItem 'patches/v0.5/chunks/part*.txt' | Sort-Object Name
-          if ($parts.Count -ne 2) { throw "Expected 2 patch chunks, found $($parts.Count)." }
-          $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
-          [IO.File]::WriteAllBytes('patches/CirosPaint_0.5.patch.zip', [Convert]::FromBase64String($b64))
-          $hash = (Get-FileHash 'patches/CirosPaint_0.5.patch.zip' -Algorithm SHA256).Hash.ToLower()
-          if ($hash -ne 'b7f18f650b77a114ffbe574e0698bdabf0958d9615539692215dd5ac937af849') {
-            throw "Patch ZIP hash mismatch: $hash"
-          }
-          tar -xf patches/CirosPaint_0.5.patch.zip -C build_source
-          $path = "$env:GITHUB_WORKSPACE\build_source\app\ui\main_window.py"
-          (Get-Content $path -Raw).Replace('v0.4 · Local','v0.5 · Local') | Set-Content $path -Encoding utf8
-          $path = "$env:GITHUB_WORKSPACE\build_source\app\ui\pages\dashboard_page.py"
-          (Get-Content $path -Raw).Replace('Ciros Paint 0.4','Ciros Paint 0.5') | Set-Content $path -Encoding utf8
-          $path = "$env:GITHUB_WORKSPACE\build_source\app\ui\pages\assistant_page.py"
-          (Get-Content $path -Raw).Replace('En 0.4 esta pantalla','En 0.5 esta pantalla') | Set-Content $path -Encoding utf8
-          Write-Host "Verified and applied Ciros Paint 0.5 patch SHA256: $hash"
+          tar -xf source/CirosPaint_0.6.rebuilt.zip -C build_source
 
       - name: Set up paint catalog and brand logos
         shell: pwsh
@@ -88,7 +68,7 @@ jobs:
         run: |
           $env:PYTHONPATH = (Get-Location).Path
           python tools/build_paint_catalog.py "$env:GITHUB_WORKSPACE\catalog_source" app/data/paint_catalog.json
-          python -c "import json, pathlib; d=json.loads(pathlib.Path('app/data/paint_catalog.json').read_text(encoding='utf-8')); assert len(d)>500; assert any(x['brand']=='Vallejo' and x['name']=='Ice Yellow' and x['code']=='70.858' and x['range_name']=='Model Color' for x in d); assert any(x['brand']=='AK Interactive' and x['name']=='Admirality Light Grey' and x['code']=='AK5035' and x['range_name']=='Naval' for x in d); assert any(x['brand']=='Citadel' and x['name']=='Abaddon Black' and x['range_name']=='Base' for x in d); print('Catalog entries:', len(d))"
+          python -c "import json, pathlib; d=json.loads(pathlib.Path('app/data/paint_catalog.json').read_text(encoding='utf-8')); assert len(d)>500; assert any(x['brand']=='Vallejo' and x['name']=='Ice Yellow' and x['code']=='70.858' for x in d); assert any(x['brand']=='AK Interactive' and x['name']=='Admirality Light Grey' and x['code']=='AK5035' for x in d); assert any(x['brand']=='Citadel' and x['name']=='Abaddon Black' for x in d); print('Catalog entries:', len(d))"
 
       - name: Run tests
         shell: pwsh
@@ -102,7 +82,7 @@ jobs:
         working-directory: build_source
         run: |
           $env:QT_QPA_PLATFORM = 'offscreen'
-          python -c "from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.ui.dialogs.paint_dialog import PaintDialog; from app.ui.pages.paints_page import PaintsPage, _brand_logo_path; d=PaintDialog(); before=d.available_units.value(); d.available_units.up_button.click(); assert d.available_units.value()==before+1; d.available_units.down_button.click(); assert d.available_units.value()==before; assert _brand_logo_path('Vallejo').is_file(); assert _brand_logo_path('Citadel').is_file(); assert _brand_logo_path('AK Interactive').is_file(); print('Ciros Paint 0.5 UI smoke test OK')"
+          python -c "from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.db.database import init_database; init_database(); from app.ui.dialogs.paint_dialog import PaintDialog; from app.ui.pages.shopping_page import ShoppingPage; from app.ui.styles import APP_STYLE; assert '#PaintCardName, #PaintMeta, #PaintQuantity' in APP_STYLE; d=PaintDialog(); before=d.available_units.value(); d.available_units.up_button.click(); assert d.available_units.value()==before+1; d.available_units.down_button.click(); assert d.available_units.value()==before; p=ShoppingPage(); assert p.table.columnCount()==6; print('Ciros Paint 0.6 shopping UI smoke test OK')"
 
       - name: Build CirosPaint.exe
         shell: pwsh
@@ -120,7 +100,7 @@ jobs:
       - name: Upload Windows executable
         uses: actions/upload-artifact@v4
         with:
-          name: CirosPaint-Windows-0.5
+          name: CirosPaint-Windows-0.6
           path: build_source/dist/CirosPaint.exe
           if-no-files-found: error
           retention-days: 30
