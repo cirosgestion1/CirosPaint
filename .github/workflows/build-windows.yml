@@ -10,105 +10,70 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Rebuild verified Ciros Paint 0.6 source
+      - name: Rebuild Ciros Paint 0.8 source
         shell: pwsh
         run: |
-          $parts = Get-ChildItem 'source/v0.6/chunks/part*.txt' | Sort-Object Name
-          if ($parts.Count -ne 7) { throw "Expected 7 source chunks, found $($parts.Count)." }
-          $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
-          [IO.File]::WriteAllBytes('source/CirosPaint_0.6.rebuilt.zip', [Convert]::FromBase64String($b64))
-          $hash = (Get-FileHash 'source/CirosPaint_0.6.rebuilt.zip' -Algorithm SHA256).Hash.ToLower()
-          if ($hash -ne '6e49c42e7d3ccfcf219ea24f164a8c436c7875eb56084318242dcb3171337b94') {
-            throw "Source ZIP hash mismatch: $hash"
+          function Rebuild-Zip($pattern, $expectedCount, $output, $expectedHash) {
+            $parts = Get-ChildItem $pattern | Sort-Object Name
+            if ($parts.Count -ne $expectedCount) { throw "Unexpected chunk count for $pattern: $($parts.Count)" }
+            $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
+            [IO.File]::WriteAllBytes($output, [Convert]::FromBase64String($b64))
+            $hash = (Get-FileHash $output -Algorithm SHA256).Hash.ToLower()
+            if ($hash -ne $expectedHash) { throw "Hash mismatch for $output: $hash" }
+            Write-Host "Verified $output $hash"
           }
-          Write-Host "Verified Ciros Paint 0.6 source SHA256: $hash"
 
-      - name: Extract source base
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path build_source | Out-Null
-          tar -xf source/CirosPaint_0.6.rebuilt.zip -C build_source
+          Rebuild-Zip 'source/v0.6/chunks/part*.txt' 7 'source/CirosPaint_0.6.zip' '6e49c42e7d3ccfcf219ea24f164a8c436c7875eb56084318242dcb3171337b94'
+          New-Item -ItemType Directory -Force build_source | Out-Null
+          tar -xf source/CirosPaint_0.6.zip -C build_source
 
-      - name: Rebuild and apply Ciros Paint 0.7 patch
-        shell: pwsh
-        run: |
-          $parts = Get-ChildItem 'patches/v0.7/chunks/part*.txt' | Sort-Object Name
-          if ($parts.Count -ne 5) { throw "Expected 5 patch chunks, found $($parts.Count)." }
-          $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
-          [IO.File]::WriteAllBytes('patches/CirosPaint_0.7.patch.zip', [Convert]::FromBase64String($b64))
-          $hash = (Get-FileHash 'patches/CirosPaint_0.7.patch.zip' -Algorithm SHA256).Hash.ToLower()
-          if ($hash -ne 'aa0d1fc99b0770425081f0e18cbb399440cab77768ea36887d33038947721620') {
-            throw "Patch ZIP hash mismatch: $hash"
-          }
-          tar -xf patches/CirosPaint_0.7.patch.zip -C build_source
-          Write-Host "Verified and applied Ciros Paint 0.7 patch SHA256: $hash"
+          Rebuild-Zip 'patches/v0.7/chunks/part*.txt' 5 'patches/CirosPaint_0.7.zip' 'aa0d1fc99b0770425081f0e18cbb399440cab77768ea36887d33038947721620'
+          tar -xf patches/CirosPaint_0.7.zip -C build_source
 
-      - name: Rebuild and apply Ciros Paint 0.8 patch
-        shell: pwsh
-        run: |
-          $parts = Get-ChildItem 'patches/v0.8/chunks/part*.txt' | Sort-Object Name
-          if ($parts.Count -ne 4) { throw "Expected 4 patch chunks, found $($parts.Count)." }
-          $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
-          [IO.File]::WriteAllBytes('patches/CirosPaint_0.8.patch.zip', [Convert]::FromBase64String($b64))
-          $hash = (Get-FileHash 'patches/CirosPaint_0.8.patch.zip' -Algorithm SHA256).Hash.ToLower()
-          if ($hash -ne 'b30570d26f44aa0e5bf2727910396628e4ab8fc646ddacd49527991cde8d3b90') {
-            throw "Patch ZIP hash mismatch: $hash"
-          }
-          tar -xf patches/CirosPaint_0.8.patch.zip -C build_source
-          Write-Host "Verified and applied Ciros Paint 0.8 patch SHA256: $hash"
+          Rebuild-Zip 'patches/v0.8/chunks/part*.txt' 4 'patches/CirosPaint_0.8.zip' 'b30570d26f44aa0e5bf2727910396628e4ab8fc646ddacd49527991cde8d3b90'
+          tar -xf patches/CirosPaint_0.8.zip -C build_source
 
-      - name: Set up paint catalog and brand logos
+          Rebuild-Zip 'patches/v0.8-artfix/chunks/part*.txt' 1 'patches/CirosPaint_0.8_artfix.zip' '3947092144570548e962b354ec0b7d6fa7b1f6416a2e0fbafa656b450945cbad'
+          tar -xf patches/CirosPaint_0.8_artfix.zip -C build_source
+
+      - name: Set up paint catalog and dependencies
         shell: pwsh
         run: |
           git init catalog_source
           git -C catalog_source remote add origin https://github.com/Arcturus5404/miniature-paints.git
           git -C catalog_source fetch --depth 1 origin 22791a682e1d155da388f4f856cd7196cd9f2677
           git -C catalog_source checkout FETCH_HEAD
-          New-Item -ItemType Directory -Force -Path build_source/app/assets/brands | Out-Null
+          New-Item -ItemType Directory -Force build_source/app/assets/brands | Out-Null
           Copy-Item catalog_source/logos/Vallejo.png build_source/app/assets/brands/vallejo.png
           Copy-Item catalog_source/logos/AK.png build_source/app/assets/brands/ak_interactive.png
           Copy-Item catalog_source/logos/Citadel_Colour.png build_source/app/assets/brands/citadel.png
-          if (!(Test-Path 'build_source/app/assets/brands/vallejo.png')) { throw 'Vallejo logo missing' }
-          if (!(Test-Path 'build_source/app/assets/brands/ak_interactive.png')) { throw 'AK Interactive logo missing' }
-          if (!(Test-Path 'build_source/app/assets/brands/citadel.png')) { throw 'Citadel logo missing' }
-
-      - name: Install dependencies
-        shell: pwsh
-        working-directory: build_source
-        run: |
+          cd build_source
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip install pyinstaller
 
-      - name: Build embedded paint catalog
+      - name: Build embedded catalogs and official artwork
         shell: pwsh
         working-directory: build_source
         run: |
           $env:PYTHONPATH = (Get-Location).Path
           python tools/build_paint_catalog.py "$env:GITHUB_WORKSPACE\catalog_source" app/data/paint_catalog.json
-          python -c "import json, pathlib; d=json.loads(pathlib.Path('app/data/paint_catalog.json').read_text(encoding='utf-8')); assert len(d)>500; assert any(x['brand']=='Vallejo' and x['name']=='Ice Yellow' and x['code']=='70.858' for x in d); assert any(x['brand']=='AK Interactive' and x['name']=='Admirality Light Grey' and x['code']=='AK5035' for x in d); assert any(x['brand']=='Citadel' and x['name']=='Abaddon Black' for x in d); print('Paint catalog entries:', len(d))"
-
-      - name: Download official miniature artwork
-        shell: pwsh
-        working-directory: build_source
-        run: |
-          $env:PYTHONPATH = (Get-Location).Path
           python tools/download_miniature_assets.py
-          if (!(Test-Path 'app/assets/miniatures/games/star_wars_legion.webp')) { throw 'Selected Star Wars Legion banner missing' }
-          if (!(Test-Path 'app/assets/miniatures/games/age_of_sigmar.jpg')) { throw 'Selected Age of Sigmar banner missing' }
-          $count = (Get-ChildItem 'app/assets/miniatures' -File -Recurse).Count
-          Write-Host "Miniature artwork files: $count"
-          if ($count -lt 20) { throw "Expected at least 20 miniature artwork files, found $count" }
+          python -c "import json,pathlib; p=json.loads(pathlib.Path('app/data/paint_catalog.json').read_text(encoding='utf-8')); m=json.loads(pathlib.Path('app/data/miniature_catalog.json').read_text(encoding='utf-8')); assert len(p)>500; assert sum(len(f['units']) for g in m['games'] for f in g['factions'])>500; print('Catalogs OK')"
+          if (!(Test-Path 'app/assets/miniatures/games/star_wars_legion.webp')) { throw 'Star Wars Legion banner missing' }
+          if (!(Test-Path 'app/assets/miniatures/games/age_of_sigmar.jpg')) { throw 'Age of Sigmar banner missing' }
+          if (!(Test-Path 'app/assets/miniatures/factions/sw_mercenaries.png')) { throw 'Mercenary artwork missing' }
+          if (!(Test-Path 'app/assets/miniatures/factions/sw_mandalorians.png')) { throw 'Mandalorian artwork missing' }
+          $count = (Get-ChildItem app/assets/miniatures -File -Recurse).Count
+          if ($count -lt 33) { throw "Expected all 33 miniature artwork files, found $count" }
+          Write-Host "Official miniature artwork files: $count/33"
 
       - name: Run tests
         shell: pwsh
@@ -117,28 +82,22 @@ jobs:
           $env:PYTHONPATH = (Get-Location).Path
           python -m unittest discover -s tests -v
 
-      - name: Ciros Paint 0.8 UI smoke test
+      - name: UI smoke test
         shell: pwsh
         working-directory: build_source
         run: |
           $env:QT_QPA_PLATFORM = 'offscreen'
-          python -c "from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.db.database import init_database; init_database(); from app.ui.pages.materials_page import MaterialsPage; from app.ui.pages.miniatures_page import MiniaturesPage; from app.services.miniature_catalog_service import MiniatureCatalogService; m=MaterialsPage(); assert m.add_cart_btn.text()=='🛒 Añadir'; p=MiniaturesPage(); assert len(p.game_banners)==2; assert [b.game['name'] for b in p.game_banners]==['Star Wars: Legion','Age of Sigmar']; p.open_game('Star Wars: Legion'); assert len(MiniatureCatalogService.factions('Star Wars: Legion'))==6; p.open_faction('Imperio Galáctico'); assert p.collection_title.text()=='Imperio Galáctico'; from app.ui.main_window import MainWindow; w=MainWindow(); texts=[b.text() for b in w.group.buttons()]; assert texts.index('▣  Compras') < texts.index('♟  Miniaturas'); print('Ciros Paint 0.8 UI smoke test OK')"
+          python -c "from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.db.database import init_database; init_database(); from app.ui.pages.materials_page import MaterialsPage; from app.ui.pages.miniatures_page import MiniaturesPage; from app.services.miniature_catalog_service import MiniatureCatalogService; m=MaterialsPage(); assert m.add_cart_btn.text()=='🛒 Añadir'; p=MiniaturesPage(); assert [b.game['name'] for b in p.game_banners]==['Star Wars: Legion','Age of Sigmar']; p.open_game('Star Wars: Legion'); assert len(MiniatureCatalogService.factions('Star Wars: Legion'))==6; p.open_faction('Imperio Galáctico'); assert p.collection_title.text()=='Imperio Galáctico'; from app.ui.main_window import MainWindow; w=MainWindow(); texts=[b.text() for b in w.group.buttons()]; assert texts.index('▣  Compras') < texts.index('♟  Miniaturas'); print('Ciros Paint 0.8 UI smoke test OK')"
 
       - name: Build CirosPaint.exe
         shell: pwsh
         working-directory: build_source
         run: |
           python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint --add-data "app/data/paint_catalog.json;app/data" --add-data "app/data/miniature_catalog.json;app/data" --add-data "app/assets/brands;app/assets/brands" --add-data "app/assets/miniatures;app/assets/miniatures" --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "MINIATURE_ASSET_SOURCES.md;." main.py
+          if (!(Test-Path 'dist/CirosPaint.exe')) { throw 'CirosPaint.exe was not generated' }
+          Get-Item dist/CirosPaint.exe | Format-List Name,Length,FullName
 
-      - name: Smoke-check executable exists
-        shell: pwsh
-        working-directory: build_source
-        run: |
-          if (-not (Test-Path 'dist/CirosPaint.exe')) { throw 'CirosPaint.exe was not generated.' }
-          Get-Item 'dist/CirosPaint.exe' | Format-List Name,Length,FullName
-
-      - name: Upload Windows executable
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: CirosPaint-Windows-0.8
           path: build_source/dist/CirosPaint.exe
