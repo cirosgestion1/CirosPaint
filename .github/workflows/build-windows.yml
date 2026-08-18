@@ -22,11 +22,11 @@ jobs:
         run: |
           function Rebuild-Zip($pattern, $expectedCount, $output, $expectedHash) {
             $parts = Get-ChildItem $pattern | Sort-Object Name
-            if ($parts.Count -ne $expectedCount) { throw "Unexpected chunk count for $pattern: $($parts.Count)" }
+            if ($parts.Count -ne $expectedCount) { throw "Unexpected chunk count for ${pattern}: $($parts.Count)" }
             $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
             [IO.File]::WriteAllBytes($output, [Convert]::FromBase64String($b64))
             $hash = (Get-FileHash $output -Algorithm SHA256).Hash.ToLower()
-            if ($hash -ne $expectedHash) { throw "Hash mismatch for $output: $hash" }
+            if ($hash -ne $expectedHash) { throw "Hash mismatch for ${output}: $hash" }
             Write-Host "Verified $output $hash"
           }
 
