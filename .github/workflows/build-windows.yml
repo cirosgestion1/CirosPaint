@@ -17,18 +17,34 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Rebuild verified Ciros Paint 0.8.1 source
+      - name: Rebuild Ciros Paint 0.8.1 source
         shell: pwsh
         run: |
-          $parts = Get-ChildItem 'source/v0.8.1/chunks/part*.txt' | Sort-Object Name
-          if ($parts.Count -ne 1) { throw "Expected 1 source chunk, found $($parts.Count)" }
-          $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
-          [IO.File]::WriteAllBytes('source/CirosPaint_0.8.1.zip', [Convert]::FromBase64String($b64))
-          $hash = (Get-FileHash 'source/CirosPaint_0.8.1.zip' -Algorithm SHA256).Hash.ToLower()
-          if ($hash -ne '9b32f08053eeb48311a75083cbd20d2ab7c3c17761781bdace40b250f4f12287') { throw "Source ZIP hash mismatch: $hash" }
+          function Rebuild-Zip($pattern, $expectedCount, $output, $expectedHash) {
+            $parts = Get-ChildItem $pattern | Sort-Object Name
+            if ($parts.Count -ne $expectedCount) { throw "Unexpected chunk count for ${pattern}: $($parts.Count)" }
+            $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
+            [IO.File]::WriteAllBytes($output, [Convert]::FromBase64String($b64))
+            $hash = (Get-FileHash $output -Algorithm SHA256).Hash.ToLower()
+            if ($hash -ne $expectedHash) { throw "Hash mismatch for ${output}: $hash" }
+            Write-Host "Verified $output $hash"
+          }
+
+          Rebuild-Zip 'source/v0.6/chunks/part*.txt' 7 'source/CirosPaint_0.6.zip' '6e49c42e7d3ccfcf219ea24f164a8c436c7875eb56084318242dcb3171337b94'
           New-Item -ItemType Directory -Force build_source | Out-Null
-          tar -xf source/CirosPaint_0.8.1.zip -C build_source
-          Write-Host "Verified Ciros Paint 0.8.1 source SHA256: $hash"
+          tar -xf source/CirosPaint_0.6.zip -C build_source
+
+          Rebuild-Zip 'patches/v0.7/chunks/part*.txt' 5 'patches/CirosPaint_0.7.zip' 'aa0d1fc99b0770425081f0e18cbb399440cab77768ea36887d33038947721620'
+          tar -xf patches/CirosPaint_0.7.zip -C build_source
+
+          Rebuild-Zip 'patches/v0.8/chunks/part*.txt' 4 'patches/CirosPaint_0.8.zip' 'b30570d26f44aa0e5bf2727910396628e4ab8fc646ddacd49527991cde8d3b90'
+          tar -xf patches/CirosPaint_0.8.zip -C build_source
+
+          Rebuild-Zip 'patches/v0.8-artfix/chunks/part*.txt' 1 'patches/CirosPaint_0.8_artfix.zip' '3947092144570548e962b354ec0b7d6fa7b1f6416a2e0fbafa656b450945cbad'
+          tar -xf patches/CirosPaint_0.8_artfix.zip -C build_source
+
+          Rebuild-Zip 'patches/v0.8.1/chunks/part*.txt' 8 'patches/CirosPaint_0.8.1.zip' 'ed47500df62010bb9d9f5fb26d09b1174a84787eb80d50c3251db3d433d7ce02'
+          tar -xf patches/CirosPaint_0.8.1.zip -C build_source
 
       - name: Set up paint catalog and dependencies
         shell: pwsh
