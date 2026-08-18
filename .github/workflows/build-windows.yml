@@ -1,0 +1,59 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Extract source
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path build_source | Out-Null
+          Expand-Archive -Path source/CirosPaint_0.2.zip -DestinationPath build_source -Force
+
+      - name: Install dependencies
+        shell: pwsh
+        working-directory: build_source/CirosPaint
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller
+
+      - name: Run database tests
+        shell: pwsh
+        working-directory: build_source/CirosPaint
+        run: python tests/test_database.py
+
+      - name: Build CirosPaint.exe
+        shell: pwsh
+        working-directory: build_source/CirosPaint
+        run: |
+          python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint main.py
+
+      - name: Smoke-check executable exists
+        shell: pwsh
+        working-directory: build_source/CirosPaint
+        run: |
+          if (-not (Test-Path 'dist/CirosPaint.exe')) { throw 'CirosPaint.exe was not generated.' }
+          Get-Item 'dist/CirosPaint.exe' | Format-List Name,Length,FullName
+
+      - name: Upload Windows executable
+        uses: actions/upload-artifact@v4
+        with:
+          name: CirosPaint-Windows-0.2
+          path: build_source/CirosPaint/dist/CirosPaint.exe
+          if-no-files-found: error
+          retention-days: 30
