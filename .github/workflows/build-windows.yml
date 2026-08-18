@@ -24,7 +24,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path build_source | Out-Null
-          Expand-Archive -Path source/CirosPaint_0.2.zip -DestinationPath build_source -Force
+          tar -xf source/CirosPaint_0.2.zip -C build_source
 
       - name: Install dependencies
         shell: pwsh
