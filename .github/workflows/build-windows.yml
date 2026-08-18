@@ -86,6 +86,7 @@ jobs:
         shell: pwsh
         working-directory: build_source
         run: |
+          $env:PYTHONPATH = (Get-Location).Path
           python tools/build_paint_catalog.py "$env:GITHUB_WORKSPACE\catalog_source" app/data/paint_catalog.json
           python -c "import json, pathlib; d=json.loads(pathlib.Path('app/data/paint_catalog.json').read_text(encoding='utf-8')); assert len(d)>500; assert any(x['brand']=='Vallejo' and x['name']=='Ice Yellow' and x['code']=='70.858' and x['range_name']=='Model Color' for x in d); assert any(x['brand']=='AK Interactive' and x['name']=='Admirality Light Grey' and x['code']=='AK5035' and x['range_name']=='Naval' for x in d); assert any(x['brand']=='Citadel' and x['name']=='Abaddon Black' and x['range_name']=='Base' for x in d); print('Catalog entries:', len(d))"
 
