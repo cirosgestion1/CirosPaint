@@ -1,0 +1,37 @@
+CIROS PAINT 0.10.3a - PRUEBA DE EJECUCION PERSONAL SIN PYINSTALLER
+
+Objetivo
+--------
+Esta variante ejecuta Ciros Paint mediante Python 3.12 en lugar de abrir un EXE de PyInstaller nuevo en cada version.
+No cambia la base de datos ni el funcionamiento de Ciros Paint 0.10.3; solo cambia la forma de arrancarlo.
+
+Como probarlo
+-------------
+1. Extrae TODO el contenido del ZIP a una carpeta normal de Windows.
+   Ejemplo: C:\CirosPaint\
+2. Haz doble clic en CirosPaint.cmd.
+3. En la primera ejecucion se crea una carpeta local .venv y se instalan las dependencias de requirements.txt.
+   Esta primera preparacion necesita Internet y puede tardar unos minutos.
+4. Cuando termine, Ciros Paint se abrira automaticamente.
+5. En las siguientes ejecuciones basta con volver a hacer doble clic en CirosPaint.cmd.
+
+Que necesita
+------------
+- Windows.
+- Python 3.12 instalado. El lanzador intenta localizar automaticamente:
+  * py -3.12
+  * python en PATH
+  * Miniconda en el perfil del usuario
+  * entornos de Miniconda del usuario
+  * Anaconda en el perfil del usuario
+- Internet solamente para instalar dependencias la primera vez.
+
+Diagnostico
+-----------
+Si Ciros Paint no abre despues de que el entorno haya sido preparado, ejecuta CirosPaint_DEBUG.cmd. La aplicacion se iniciara con consola y el error quedara visible.
+
+Importante
+----------
+- No ejecutes CirosPaint.cmd directamente desde dentro del ZIP: extrae primero la carpeta.
+- La carpeta .venv pertenece solo a esta copia de Ciros Paint y se puede borrar sin afectar a tus datos. Si la borras, se volvera a crear en el siguiente inicio.
+- Los datos reales de Ciros Paint siguen usando la ubicacion normal de la aplicacion; esta prueba no crea una base de datos alternativa.
