@@ -2,6 +2,8 @@ name: Build Windows EXE
 
 on:
   workflow_dispatch:
+  push:
+    branches: [build/verify-0.9.4]
   pull_request:
     branches: [main]
 
