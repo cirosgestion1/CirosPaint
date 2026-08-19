@@ -4,7 +4,7 @@ Aplicación de escritorio local para gestionar pinturas, materiales y miniaturas
 
 ## Estado actual
 
-Versión de desarrollo: **0.2**.
+Versión de desarrollo: **0.9.3**.
 
 El repositorio incluye un workflow de GitHub Actions que compila automáticamente una versión autocontenida para Windows con PyInstaller. El resultado se publica como artefacto `CirosPaint-Windows` y contiene `CirosPaint.exe`.
 
