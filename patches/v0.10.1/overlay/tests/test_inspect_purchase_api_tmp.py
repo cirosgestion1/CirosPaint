@@ -3,14 +3,14 @@ from __future__ import annotations
 import inspect
 import unittest
 
-from app.repositories.paint_repository import PaintRepository
+import app.ui.dialogs.paint_basket_dialog as paint_basket_dialog
 
 
 class InspectPurchaseApiTemporaryTest(unittest.TestCase):
-    def test_print_paint_repository_source(self):
-        print("\n=== PAINT_REPOSITORY_SOURCE_START ===")
-        print(inspect.getsource(PaintRepository))
-        print("=== PAINT_REPOSITORY_SOURCE_END ===\n")
+    def test_print_future_purchase_source(self):
+        print("\n=== PAINT_BASKET_DIALOG_SOURCE_START ===")
+        print(inspect.getsource(paint_basket_dialog))
+        print("=== PAINT_BASKET_DIALOG_SOURCE_END ===\n")
         self.assertTrue(True)
 
 
