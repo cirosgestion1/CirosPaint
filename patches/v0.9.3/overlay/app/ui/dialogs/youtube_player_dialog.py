@@ -4,7 +4,7 @@ from urllib.parse import quote
 
 from PySide6.QtCore import QByteArray, QUrl
 from PySide6.QtGui import QDesktopServices
-from PySide6.QtWebEngineCore import QWebEngineUrlRequestInterceptor
+from PySide6.QtWebEngineCore import QWebEngineHttpRequest, QWebEngineUrlRequestInterceptor
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 
@@ -23,6 +23,19 @@ def build_youtube_embed_url(video_id: str) -> QUrl:
         f"https://www.youtube.com/embed/{safe_video_id}"
         f"?playsinline=1&rel=0&origin={origin}&widget_referrer={referrer}"
     )
+
+
+def build_youtube_player_request(video_id: str) -> QWebEngineHttpRequest:
+    """Compatibility helper retained from 0.9.2.
+
+    The 0.9.3 player no longer navigates with this request directly; the actual
+    iframe request is handled by YouTubeRequestInterceptor below. Keeping this
+    helper avoids breaking earlier tests and callers while preserving the new
+    playback strategy.
+    """
+    request = QWebEngineHttpRequest(build_youtube_embed_url(video_id))
+    request.setHeader(QByteArray(b"Referer"), QByteArray(PLAYER_REFERRER.encode("utf-8")))
+    return request
 
 
 def build_youtube_player_html(video_id: str) -> str:
