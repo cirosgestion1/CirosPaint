@@ -1,73 +1,56 @@
 # Ciros Paint
 
-Aplicación de escritorio local para gestionar pinturas, materiales, compras, miniaturas y tutoriales de modelismo.
+Aplicación de escritorio local-first para Windows destinada a gestionar pinturas, materiales, compras, miniaturas y recursos del hobby de pintura y modelismo.
 
-## Estado actual
+## Estado del proyecto
 
-Versión actual de desarrollo y verificación: **0.9.2**.
+La familia **0.9.x está finalizada**.
 
-Rama activa de verificación:
+Última revisión interna validada: **0.9.4.1**.
 
-`build/verify-0.9.2`
+Estado consolidado que se promoverá a `main`: **Ciros Paint 0.9**.
 
-Pull request activo:
+Siguiente etapa de desarrollo: **Ciros Paint 1.0**.
 
-`#13 - Ciros Paint 0.9.2 - fix YouTube Error 153`
-
-## Funcionalidad disponible
+## Funcionalidad consolidada hasta 0.9
 
 - Inventario de pinturas con catálogo integrado.
 - Gestión de materiales y lista de compras.
-- Gestión de miniaturas de Star Wars: Legion y Age of Sigmar.
+- Gestión de miniaturas de Star Wars: Legion y Warhammer Age of Sigmar.
 - Estados de miniaturas: Sin montar, Montado, Pintado y Terminado.
-- Buscador de tutoriales mediante YouTube Data API.
-- Favoritos organizados automáticamente en dos carpetas visuales:
-  - Miniaturas.
-  - Modelismo general.
-- Cambio manual de categoría para cualquier favorito.
-- Reproductor interno de YouTube mediante Qt WebEngine.
+- Buscador especializado de tutoriales mediante YouTube Data API.
+- Filtro de idioma: Todos / Español / Inglés.
+- Tags ES / EN / ? en las tarjetas de vídeo.
+- Reproductor interno de YouTube mediante Qt WebEngine y página loopback local.
+- Cierre completo de la sesión del reproductor al cerrar el diálogo, sin audio residual en segundo plano.
+- Favoritos organizados en Miniaturas y Modelismo general.
+- Cambio manual de categoría de favoritos.
 
-## Ciros Paint 0.9.2
+## Validación final de la familia 0.9
 
-La 0.9.2 corrige el **Error 153 de YouTube** observado al intentar reproducir vídeos dentro de Ciros Paint 0.9.1.
+La revisión **0.9.4.1** superó GitHub Actions y fue probada manualmente en Windows.
 
-La corrección modifica el reproductor embebido para identificar correctamente la aplicación ante YouTube mediante `HTTP Referer`, `origin` y `widget_referrer`.
+Se confirmó en entorno real que:
 
-La implementación ha superado:
+- la reproducción interna de YouTube funciona;
+- el filtrado Todos / Español / Inglés funciona;
+- los tags de idioma funcionan;
+- al cerrar el reproductor, el vídeo y el audio se detienen inmediatamente.
 
-- reconstrucción completa de la aplicación desde la cadena de versiones almacenada en el repositorio;
-- suite de tests;
-- test específico de identidad/Referer del reproductor de YouTube;
-- smoke test de interfaz;
-- compilación con PyInstaller para Windows;
-- publicación del artefacto `CirosPaint-Windows-0.9.2`.
+## Política de versiones
 
-La validación definitiva de reproducción real de YouTube queda pendiente de probar la 0.9.2 en un equipo Windows de usuario, ya que GitHub Actions verifica la petición y la interfaz pero no reproduce un vídeo real en una sesión gráfica interactiva.
-
-## Build de Windows verificado
-
-Workflow run funcional verificado: `32260154450`
-
-Artefacto: `CirosPaint-Windows-0.9.2`
-
-Ejecutable: `CirosPaint_0.9.2.exe`
-
-SHA256:
-
-`2dee6d3f6728c59c0057092886e41b805010951832fe3af86fa312fd07c2f7a6`
+- Las revisiones `0.x.y` se utilizan para desarrollo, correcciones y validación interna.
+- Cuando un bloque queda cerrado, su último estado validado se consolida en `main` como `0.x`.
+- Por tanto, la cadena actual queda: `0.8` → `0.9` → próximo objetivo `1.0`.
 
 ## Datos locales
 
-La aplicación guarda los datos fuera del ejecutable en:
+Los datos del usuario se guardan fuera del ejecutable en:
 
 `%LOCALAPPDATA%\CirosPaint\`
 
-La base de datos principal se encuentra en:
+Base de datos principal:
 
 `%LOCALAPPDATA%\CirosPaint\ciros_paint.db`
 
-Por tanto, sustituir el ejecutable por una versión nueva no elimina ni reemplaza el inventario local.
-
-## Política actual de ramas
-
-Las versiones verificadas se desarrollan y prueban en ramas `build/verify-*`. La rama `main` permanece sin fusionar automáticamente mientras se valida el comportamiento real de cada versión.
+Actualizar el ejecutable no debe sustituir ni borrar el inventario local.
