@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Rebuild Ciros Paint 0.8.3 source
+      - name: Rebuild Ciros Paint 0.8.3 base and apply 0.9.0
         shell: pwsh
         run: |
           function Rebuild-Zip($pattern, $expectedCount, $output, $expectedHash) {
@@ -52,9 +52,23 @@ jobs:
 
           Rebuild-Zip 'patches/v0.8.3/chunks/part*.txt' 12 'patches/CirosPaint_0.8.3_overlay.zip' '185e2b09264544498de8da2d73e5f2c148b0a57b3fec6437bd7c22676b5b7dd9'
           tar -xf patches/CirosPaint_0.8.3_overlay.zip -C build_source
-          cd build_source
+          Push-Location build_source
           python tools/apply_v083_metadata.py
+          Pop-Location
           Write-Host 'Applied Ciros Paint 0.8.3 overlay'
+
+          # Preserve the verified 0.8.3.1 dashboard hotfix identified from the known-good Windows executable.
+          $dashboardPath = 'build_source/app/ui/pages/dashboard_page.py'
+          $dashboard = Get-Content $dashboardPath -Raw
+          $dashboard = $dashboard.Replace('Ciros Paint 0.8.3.3', 'Ciros Paint 0.8.3.1')
+          Set-Content $dashboardPath $dashboard -Encoding utf8
+          if ((Get-Content $dashboardPath -Raw) -notmatch 'Ciros Paint 0\.8\.3\.1') {
+            throw 'Could not preserve the Ciros Paint 0.8.3.1 dashboard hotfix.'
+          }
+
+          Rebuild-Zip 'patches/v0.9.0/code_overlay/part*.txt' 5 'patches/CirosPaint_0.9.0_code_overlay.zip' '7dd1878ef496db816313474e55312da775cd505a4da571c68c6a5767d62272f3'
+          tar -xf patches/CirosPaint_0.9.0_code_overlay.zip -C build_source
+          python -c "from pathlib import Path; ns={}; exec(Path('build_source/app/core/config.py').read_text(encoding='utf-8'), ns); assert ns['APP_VERSION']=='0.9.0'; s=Path('build_source/app/ui/styles.py').read_text(encoding='utf-8'); assert 'rgba(5, 8, 13, 230)' in s; print('Ciros Paint 0.9.0 overlay verified')"
 
       - name: Set up paint catalog and dependencies
         shell: pwsh
@@ -102,21 +116,23 @@ jobs:
         run: |
           $env:QT_QPA_PLATFORM = 'offscreen'
           $env:PYTHONPATH = (Get-Location).Path
-          python -c "from types import SimpleNamespace; from PySide6.QtCore import Qt; from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.db.database import init_database; init_database(); from app.ui.pages.miniatures_page import MiniaturesPage,UnitCard; from app.services.miniature_catalog_service import MiniatureCatalogService; p=MiniaturesPage(); assert [b.game['name'] for b in p.game_banners]==['Star Wars: Legion','Age of Sigmar']; assert p.state_buttons[None].isChecked(); assert [p.state_buttons[s].text() for s in (None,'Sin montar','Montado','Pintado','Terminado')]==['Todo','Sin montar','Montado','Pintado','Terminado']; p._toggle_state('Montado'); assert p.active_state_filter=='Montado' and p.state_buttons['Montado'].isChecked(); p._toggle_state('Montado'); assert p.active_state_filter is None and p.state_buttons[None].isChecked(); fac=MiniatureCatalogService.faction('Star Wars: Legion','Imperio Galáctico'); unit=MiniatureCatalogService.unit('Star Wars: Legion','Imperio Galáctico','Stormtroopers'); entry=SimpleNamespace(id=1,unit_name='Stormtroopers',total_count=24,unassembled_count=4,assembled_count=7,painted_count=8,finished_count=5); card=UnitCard(entry,unit,fac,'Pintado'); assert card.qty.text()=='8'; assert '#3B82F6' in card.qty.styleSheet(); assert card.art.has_unit_art; assert card.faction_icon_asset==fac['icon_asset']; blank=UnitCard(entry,{'primary_role':'Tropas','image_asset':None},{'image_asset':fac['image_asset'],'icon_asset':fac['icon_asset']}); assert not blank.art.has_unit_art and not blank.art.using_faction_fallback; aos=MiniatureCatalogService.faction('Age of Sigmar','Seraphon'); aos_unit=MiniatureCatalogService.unit('Age of Sigmar','Seraphon','Saurus Warriors'); aos_entry=SimpleNamespace(id=2,unit_name='Saurus Warriors',total_count=10,unassembled_count=2,assembled_count=3,painted_count=4,finished_count=1); aos_card=UnitCard(aos_entry,aos_unit,aos); assert aos_card.art.faction_fallback==aos['image_asset'] and aos_card.art.using_faction_fallback; grid=p._cards_grid([(entry,unit)],fac); assert bool(grid.alignment() & Qt.AlignLeft); assert bool(grid.itemAtPosition(0,0).alignment() & Qt.AlignLeft); assert p.delete_faction_btn.objectName()=='DangerCompactButton'; from app.core.config import APP_VERSION; assert APP_VERSION=='0.8.3'; print('Ciros Paint 0.8.3 UI smoke test OK')"
+          python -c "from types import SimpleNamespace; from PySide6.QtCore import Qt; from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.db.database import init_database; init_database(); from app.ui.pages.miniatures_page import MiniaturesPage,UnitCard; from app.services.miniature_catalog_service import MiniatureCatalogService; p=MiniaturesPage(); assert [b.game['name'] for b in p.game_banners]==['Star Wars: Legion','Age of Sigmar']; assert p.state_buttons[None].isChecked(); assert [p.state_buttons[s].text() for s in (None,'Sin montar','Montado','Pintado','Terminado')]==['Todo','Sin montar','Montado','Pintado','Terminado']; p._toggle_state('Montado'); assert p.active_state_filter=='Montado' and p.state_buttons['Montado'].isChecked(); p._toggle_state('Montado'); assert p.active_state_filter is None and p.state_buttons[None].isChecked(); fac=MiniatureCatalogService.faction('Star Wars: Legion','Imperio Galáctico'); unit=MiniatureCatalogService.unit('Star Wars: Legion','Imperio Galáctico','Stormtroopers'); entry=SimpleNamespace(id=1,unit_name='Stormtroopers',total_count=24,unassembled_count=4,assembled_count=7,painted_count=8,finished_count=5); card=UnitCard(entry,unit,fac,'Pintado'); assert card.qty.text()=='8'; assert '#3B82F6' in card.qty.styleSheet(); assert card.art.has_unit_art; assert card.faction_icon_asset==fac['icon_asset']; blank=UnitCard(entry,{'primary_role':'Tropas','image_asset':None},{'image_asset':fac['image_asset'],'icon_asset':fac['icon_asset']}); assert not blank.art.has_unit_art and not blank.art.using_faction_fallback; aos=MiniatureCatalogService.faction('Age of Sigmar','Seraphon'); aos_unit=MiniatureCatalogService.unit('Age of Sigmar','Seraphon','Saurus Warriors'); aos_entry=SimpleNamespace(id=2,unit_name='Saurus Warriors',total_count=10,unassembled_count=2,assembled_count=3,painted_count=4,finished_count=1); aos_card=UnitCard(aos_entry,aos_unit,aos); assert aos_card.art.faction_fallback==aos['image_asset'] and aos_card.art.using_faction_fallback; grid=p._cards_grid([(entry,unit)],fac); assert bool(grid.alignment() & Qt.AlignLeft); assert bool(grid.itemAtPosition(0,0).alignment() & Qt.AlignLeft); assert p.delete_faction_btn.objectName()=='DangerCompactButton'; from app.core.config import APP_VERSION; assert APP_VERSION=='0.9.0'; from app.repositories.library_repository import LibraryRepository; from app.services.tutorial_query_service import TutorialQueryService; assert TutorialQueryService.contextualize('pintar Stormtrooper').valid; print('Ciros Paint 0.9.0 UI smoke test OK')"
 
-      - name: Build CirosPaint.exe
+      - name: Build CirosPaint_0.9.0.exe
         shell: pwsh
         working-directory: build_source
         run: |
           python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint --add-data "app/data/paint_catalog.json;app/data" --add-data "app/data/miniature_catalog.json;app/data" --add-data "app/assets/brands;app/assets/brands" --add-data "app/assets/miniatures;app/assets/miniatures" --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "MINIATURE_ASSET_SOURCES.md;." main.py
           if (!(Test-Path 'dist/CirosPaint.exe')) { throw 'CirosPaint.exe was not generated' }
-          Get-Item dist/CirosPaint.exe | Format-List Name,Length,FullName
-          $exeHash = (Get-FileHash 'dist/CirosPaint.exe' -Algorithm SHA256).Hash.ToLower()
-          Write-Host "CirosPaint.exe SHA256: $exeHash"
+          Move-Item 'dist/CirosPaint.exe' 'dist/CirosPaint_0.9.0.exe'
+          if (!(Test-Path 'dist/CirosPaint_0.9.0.exe')) { throw 'CirosPaint_0.9.0.exe was not generated' }
+          Get-Item dist/CirosPaint_0.9.0.exe | Format-List Name,Length,FullName
+          $exeHash = (Get-FileHash 'dist/CirosPaint_0.9.0.exe' -Algorithm SHA256).Hash.ToLower()
+          Write-Host "CirosPaint_0.9.0.exe SHA256: $exeHash"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CirosPaint-Windows-0.8.3
-          path: build_source/dist/CirosPaint.exe
+          name: CirosPaint-Windows-0.9.0
+          path: build_source/dist/CirosPaint_0.9.0.exe
           if-no-files-found: error
           retention-days: 30
