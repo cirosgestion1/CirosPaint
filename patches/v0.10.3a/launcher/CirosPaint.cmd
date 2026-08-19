@@ -44,8 +44,14 @@ if not defined BOOTSTRAP (
     echo No se ha encontrado Python 3.12.
     echo Instala Python 3.12 o Miniconda y vuelve a ejecutar este archivo.
     echo.
+    if /i "%CIROSPAINT_LAUNCHER_TEST%"=="1" exit /b 1
     pause
     exit /b 1
+)
+
+if /i "%CIROSPAINT_LAUNCHER_TEST%"=="1" (
+    echo Ciros Paint launcher detection OK: %BOOTSTRAP%
+    exit /b 0
 )
 
 if not exist ".venv\Scripts\python.exe" (
