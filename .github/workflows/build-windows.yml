@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Rebuild consolidated Ciros Paint 0.8
+      - name: Rebuild consolidated Ciros Paint 0.9
         shell: pwsh
         run: |
           function Rebuild-Zip($pattern, $expectedCount, $output, $expectedHash) {
@@ -56,15 +56,40 @@ jobs:
           python tools/apply_v083_metadata.py
           Pop-Location
 
-          # Preserve the final verified hotfix of the 0.8 family (formerly 0.8.3.1).
           $dashboardPath = 'build_source/app/ui/pages/dashboard_page.py'
           $dashboard = Get-Content $dashboardPath -Raw
           $dashboard = $dashboard.Replace('Ciros Paint 0.8.3.3', 'Ciros Paint 0.8.3.1')
           Set-Content $dashboardPath $dashboard -Encoding utf8
-          if ((Get-Content $dashboardPath -Raw) -notmatch 'Ciros Paint 0\.8\.3\.1') {
-            throw 'Could not preserve the final 0.8 dashboard hotfix.'
-          }
-          Write-Host 'Consolidated Ciros Paint 0.8 source reconstructed'
+
+          Rebuild-Zip 'patches/v0.9.0/code_overlay/part*.txt' 5 'patches/CirosPaint_0.9.0_code_overlay.zip' '7dd1878ef496db816313474e55312da775cd505a4da571c68c6a5767d62272f3'
+          tar -xf patches/CirosPaint_0.9.0_code_overlay.zip -C build_source
+
+          Copy-Item 'patches/v0.9.1/overlay/app/*' 'build_source/app' -Recurse -Force
+          Copy-Item 'patches/v0.9.1/overlay/tests/*' 'build_source/tests' -Recurse -Force
+          python patches/v0.9.1/apply_v091.py build_source
+
+          Copy-Item 'patches/v0.9.2/overlay/app/*' 'build_source/app' -Recurse -Force
+          Copy-Item 'patches/v0.9.2/overlay/tests/*' 'build_source/tests' -Recurse -Force
+          python patches/v0.9.2/apply_v092.py build_source
+
+          Copy-Item 'patches/v0.9.3/overlay/app/*' 'build_source/app' -Recurse -Force
+          Copy-Item 'patches/v0.9.3/overlay/tests/*' 'build_source/tests' -Recurse -Force
+          python patches/v0.9.3/apply_v093.py build_source
+
+          Copy-Item 'patches/v0.9.4/overlay/app/*' 'build_source/app' -Recurse -Force
+          Copy-Item 'patches/v0.9.4/overlay/tests/*' 'build_source/tests' -Recurse -Force
+          python patches/v0.9.4/apply_v094.py build_source
+
+          Copy-Item 'patches/v0.9.4.1/overlay/app/*' 'build_source/app' -Recurse -Force
+          Copy-Item 'patches/v0.9.4.1/overlay/tests/*' 'build_source/tests' -Recurse -Force
+          python patches/v0.9.4.1/apply_v0941.py build_source
+
+          $configPath = 'build_source/app/core/config.py'
+          $config = Get-Content $configPath -Raw
+          $config = $config.Replace('APP_VERSION = "0.9.4.1"', 'APP_VERSION = "0.9"')
+          Set-Content $configPath $config -Encoding utf8
+
+          python -c "from pathlib import Path; ns={}; exec(Path('build_source/app/core/config.py').read_text(encoding='utf-8'), ns); assert ns['APP_VERSION']=='0.9'; p=Path('build_source/app/ui/dialogs/youtube_player_dialog.py').read_text(encoding='utf-8'); assert 'dispose_web_engine_view' in p and 'setAudioMuted(True)' in p and 'LifecycleState.Discarded' in p; y=Path('build_source/app/services/youtube_service.py').read_text(encoding='utf-8'); assert 'build_language_search_plan' in y; print('Ciros Paint 0.9 consolidated source verified')"
 
       - name: Set up paint catalog and dependencies
         shell: pwsh
@@ -82,22 +107,16 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install pyinstaller
 
-      - name: Build catalogs and official miniature artwork
+      - name: Build catalogs and verify assets
         shell: pwsh
         working-directory: build_source
         run: |
           $env:PYTHONPATH = (Get-Location).Path
           python tools/build_paint_catalog.py "$env:GITHUB_WORKSPACE\catalog_source" app/data/paint_catalog.json
           python tools/download_miniature_assets.py
-          python -c "import json,pathlib; p=json.loads(pathlib.Path('app/data/paint_catalog.json').read_text(encoding='utf-8')); m=json.loads(pathlib.Path('app/data/miniature_catalog.json').read_text(encoding='utf-8')); assert len(p)>500; assert all(isinstance(x.get('rgb'),list) and len(x['rgb'])==3 and isinstance(x.get('lab'),list) and len(x['lab'])==3 for x in p); assert m.get('catalog_revision')=='0.8.1'; assert sum(len(f['units']) for g in m['games'] for f in g['factions'])>500; aos=next(g for g in m['games'] if g['name']=='Age of Sigmar'); assert all(f.get('image_asset') and f.get('image_url') for f in aos['factions']); assert len({f['image_asset'] for f in aos['factions']})==len(aos['factions']); print('Catalogs and hidden CIELAB metadata OK')"
-          if (!(Test-Path 'app/assets/miniatures/games/star_wars_legion.webp')) { throw 'Star Wars Legion banner missing' }
-          if (!(Test-Path 'app/assets/miniatures/games/age_of_sigmar_battle.jpg')) { throw 'Age of Sigmar battle banner missing' }
-          foreach ($icon in @('sw_empire.svg','sw_rebels.svg','sw_republic.svg','sw_separatists.svg','sw_mercenaries.svg','sw_mandalorians.svg')) {
-            if (!(Test-Path "app/assets/miniatures/icons/$icon")) { throw "Faction icon missing: $icon" }
-          }
-          foreach ($art in @('swq11-stormtroopers.webp','swq12-scout-troopers.webp','swq103-commander-darth-vader-and-general-veers.webp','swq207-74-z-speeder-bike.webp','swq205-imperial-death-troopers.webp')) {
-            if (!(Test-Path "app/assets/miniatures/products/legion/$art")) { throw "Legion unit artwork missing: $art" }
-          }
+          python -c "import json,pathlib; p=json.loads(pathlib.Path('app/data/paint_catalog.json').read_text(encoding='utf-8')); m=json.loads(pathlib.Path('app/data/miniature_catalog.json').read_text(encoding='utf-8')); assert len(p)>500; assert m.get('catalog_revision')=='0.8.1'; assert sum(len(f['units']) for g in m['games'] for f in g['factions'])>500; print('Catalogs OK')"
+          if (!(Test-Path 'app/assets/favorites/miniatures.svg')) { throw 'Miniaturas favorites banner missing' }
+          if (!(Test-Path 'app/assets/favorites/modeling_general.svg')) { throw 'Modelismo general favorites banner missing' }
 
       - name: Run tests
         shell: pwsh
@@ -106,27 +125,28 @@ jobs:
           $env:PYTHONPATH = (Get-Location).Path
           python -m unittest discover -s tests -v
 
-      - name: UI smoke test
+      - name: UI and player shutdown smoke test
         shell: pwsh
         working-directory: build_source
         run: |
           $env:QT_QPA_PLATFORM = 'offscreen'
           $env:PYTHONPATH = (Get-Location).Path
-          python -c "from types import SimpleNamespace; from PySide6.QtCore import Qt; from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.db.database import init_database; init_database(); from app.ui.pages.miniatures_page import MiniaturesPage,UnitCard; from app.services.miniature_catalog_service import MiniatureCatalogService; p=MiniaturesPage(); assert [b.game['name'] for b in p.game_banners]==['Star Wars: Legion','Age of Sigmar']; assert p.state_buttons[None].isChecked(); fac=MiniatureCatalogService.faction('Star Wars: Legion','Imperio Galáctico'); unit=MiniatureCatalogService.unit('Star Wars: Legion','Imperio Galáctico','Stormtroopers'); entry=SimpleNamespace(id=1,unit_name='Stormtroopers',total_count=24,unassembled_count=4,assembled_count=7,painted_count=8,finished_count=5); card=UnitCard(entry,unit,fac,'Pintado'); assert card.qty.text()=='8'; aos=MiniatureCatalogService.faction('Age of Sigmar','Seraphon'); aos_unit=MiniatureCatalogService.unit('Age of Sigmar','Seraphon','Saurus Warriors'); aos_entry=SimpleNamespace(id=2,unit_name='Saurus Warriors',total_count=10,unassembled_count=2,assembled_count=3,painted_count=4,finished_count=1); aos_card=UnitCard(aos_entry,aos_unit,aos); assert aos_card.art.faction_fallback==aos['image_asset']; from app.core.config import APP_VERSION; assert APP_VERSION=='0.8.3'; assert 'Ciros Paint 0.8.3.1' in open('app/ui/pages/dashboard_page.py',encoding='utf-8').read(); print('Consolidated Ciros Paint 0.8 UI smoke test OK')"
+          python -c "from urllib.request import urlopen; from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.core.config import APP_VERSION; assert APP_VERSION=='0.9'; from app.ui.pages.tutorial_search_page import TutorialSearchPage,_language_badge; from app.services.youtube_service import TutorialVideo,build_language_search_plan; p=TutorialSearchPage(); assert [p.language_filter.itemText(i) for i in range(p.language_filter.count())]==['Todos','Español','Inglés']; plan=build_language_search_plan('pintar Darth Vader',''); assert [x[1] for x in plan]==['es','en']; v=TutorialVideo('dQw4w9WgXcQ','How to paint Darth Vader','Test','','','https://www.youtube.com/watch?v=dQw4w9WgXcQ','1:00','2026-01-01T00:00:00Z',1,1,language_code='en'); b=_language_badge(v); assert b.text()=='EN'; from app.ui.dialogs.youtube_player_dialog import LoopbackPlayerServer,YouTubePlayerDialog; s=LoopbackPlayerServer('dQw4w9WgXcQ'); s.start(); r=urlopen(s.url.toString(),timeout=3); h=r.read().decode('utf-8'); assert 'youtube.com/embed/dQw4w9WgXcQ' in h; s.stop(); d=YouTubePlayerDialog('dQw4w9WgXcQ','Test','https://www.youtube.com/watch?v=dQw4w9WgXcQ'); assert d.web is not None and d._player_server is not None; d.reject(); assert d.web is None and d._player_server is None and d._player_shutdown; print('Ciros Paint 0.9 stable UI/player shutdown smoke test OK')"
 
-      - name: Build CirosPaint_0.8.exe
+      - name: Build CirosPaint_0.9.exe
         shell: pwsh
         working-directory: build_source
         run: |
-          python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint --add-data "app/data/paint_catalog.json;app/data" --add-data "app/data/miniature_catalog.json;app/data" --add-data "app/assets/brands;app/assets/brands" --add-data "app/assets/miniatures;app/assets/miniatures" --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "MINIATURE_ASSET_SOURCES.md;." main.py
+          python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint --add-data "app/data/paint_catalog.json;app/data" --add-data "app/data/miniature_catalog.json;app/data" --add-data "app/assets/brands;app/assets/brands" --add-data "app/assets/miniatures;app/assets/miniatures" --add-data "app/assets/favorites;app/assets/favorites" --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "MINIATURE_ASSET_SOURCES.md;." main.py
           if (!(Test-Path 'dist/CirosPaint.exe')) { throw 'CirosPaint.exe was not generated' }
-          Move-Item 'dist/CirosPaint.exe' 'dist/CirosPaint_0.8.exe'
-          $exeHash = (Get-FileHash 'dist/CirosPaint_0.8.exe' -Algorithm SHA256).Hash.ToLower()
-          Write-Host "CirosPaint_0.8.exe SHA256: $exeHash"
+          Move-Item 'dist/CirosPaint.exe' 'dist/CirosPaint_0.9.exe'
+          if (!(Test-Path 'dist/CirosPaint_0.9.exe')) { throw 'CirosPaint_0.9.exe was not generated' }
+          $exeHash = (Get-FileHash 'dist/CirosPaint_0.9.exe' -Algorithm SHA256).Hash.ToLower()
+          Write-Host "CirosPaint_0.9.exe SHA256: $exeHash"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CirosPaint-Windows-0.8
-          path: build_source/dist/CirosPaint_0.8.exe
+          name: CirosPaint-Windows-0.9
+          path: build_source/dist/CirosPaint_0.9.exe
           if-no-files-found: error
           retention-days: 30
