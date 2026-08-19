@@ -3,6 +3,8 @@ name: Inspect reconstructed source
 on:
   push:
     branches: [build/verify-0.10.1-inspect]
+  pull_request:
+    branches: [build/verify-0.10.1]
 
 jobs:
   inspect:
