@@ -4,6 +4,7 @@ Objetivo
 --------
 Esta variante ejecuta Ciros Paint mediante Python 3.12 en lugar de abrir un EXE de PyInstaller nuevo en cada version.
 No cambia la base de datos ni el funcionamiento de Ciros Paint 0.10.3; solo cambia la forma de arrancarlo.
+La prueba sirve especificamente para comprobar en el PC del usuario si este flujo puede ejecutarse manteniendo Smart App Control activado.
 
 Como probarlo
 -------------
