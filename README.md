@@ -8,7 +8,7 @@ La familia **0.9.x está finalizada**.
 
 Última revisión interna validada: **0.9.4.1**.
 
-Estado consolidado que se promoverá a `main`: **Ciros Paint 0.9**.
+Estado consolidado actualmente en `main`: **Ciros Paint 0.9**.
 
 Siguiente etapa de desarrollo: **Ciros Paint 1.0**.
 
@@ -41,7 +41,8 @@ Se confirmó en entorno real que:
 
 - Las revisiones `0.x.y` se utilizan para desarrollo, correcciones y validación interna.
 - Cuando un bloque queda cerrado, su último estado validado se consolida en `main` como `0.x`.
-- Por tanto, la cadena actual queda: `0.8` → `0.9` → próximo objetivo `1.0`.
+- La cadena consolidada actual queda: `0.8` → `0.9`.
+- El próximo objetivo es **1.0**.
 
 ## Datos locales
 
