@@ -140,7 +140,7 @@ class AssistantPaintToolsV0103Tests(unittest.TestCase):
         self.assertEqual(result.data["paint"]["total_units"], 3)
 
     def test_ambiguous_write_requests_user_input_and_does_not_mutate(self):
-        source_a = catalog_paint("Grey", "A1")
+        source_a = catalog_paint("Cool Grey", "A1")
         source_b = catalog_paint("Grey Blue", "A2")
         service, _, paint_repo, _ = self.make_service(catalog=[source_a, source_b])
         result = service.add_paint_to_inventory(query="grey", quantity=1)
