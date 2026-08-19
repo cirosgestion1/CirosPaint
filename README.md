@@ -1,49 +1,45 @@
 # Ciros Paint
 
-Aplicación de escritorio local-first para Windows destinada a gestionar pinturas, materiales, compras, miniaturas y recursos del hobby de pintura de miniaturas y modelismo.
+Aplicación de escritorio local-first para Windows destinada a gestionar pinturas, materiales, miniaturas y recursos del hobby de pintura y modelismo.
 
-Actualmente incluye soporte de miniaturas para **Star Wars: Legion** y **Warhammer Age of Sigmar**, además de la Biblioteca de tutoriales de YouTube y Favoritos.
+## Rama `main`
 
-## Estado actual
+**Línea estable consolidada: Ciros Paint 0.8**.
 
-Versión de desarrollo: **0.9.4**.
+La rama `main` conserva únicamente los bloques principales `0.x` ya cerrados. Las revisiones internas `0.x.y` se desarrollan y validan en ramas separadas y, cuando se cierra el bloque, su estado final se consolida en `main` bajo `0.x`.
 
-Rama activa de desarrollo/verificación:
+Ejemplo de la política de versiones:
 
-`build/verify-0.9.4`
+- `0.8.1`, `0.8.2`, `0.8.3`, `0.8.3.1` → iteraciones internas del bloque 0.8.
+- `main` → estado consolidado **0.8**.
+- `0.9.0`, `0.9.1`, `0.9.2`, `0.9.3`, `0.9.4` → desarrollo actual del bloque 0.9, todavía fuera de `main`.
+- Cuando el bloque 0.9 quede cerrado, `main` avanzará a **0.9**.
 
-Pull Request activo:
+El estado funcional consolidado de 0.8 corresponde al último estado validado de la familia 0.8, incluido el hotfix final que manejábamos como `0.8.3.1`.
 
-`#15 - Ciros Paint 0.9.4 - YouTube loopback player + bilingual filter`
+## Estado de desarrollo actual
 
-### Ciros Paint 0.9.4
+El desarrollo activo continúa en:
 
-La versión 0.9.4 incorpora:
+- Rama: `build/verify-0.9.4`
+- PR de verificación: **#15**
 
-- filtro de tutoriales **Todos / Español / Inglés** rehecho;
-- búsquedas localizadas en español e inglés;
-- comprobación posterior del idioma del vídeo;
-- tag visual **ES / EN / ?** en las tarjetas de resultados;
-- nueva estrategia de reproducción interna de YouTube mediante una página local servida en `localhost / 127.0.0.1`;
-- mantenimiento de **Abrir en YouTube** como alternativa externa.
+La serie 0.9 está dedicada principalmente a la Biblioteca inteligente, Buscador de tutoriales, Favoritos y sus correcciones/pulido. No se incorporará a `main` hasta que consideremos cerrado el bloque 0.9.
 
-La compilación de Windows de la 0.9.4 ha superado:
+## Bloques cerrados en 0.8
 
-- reconstrucción del proyecto;
-- suite completa de tests;
-- pruebas del filtro bilingüe;
-- pruebas de detección y tag de idioma;
-- prueba del servidor loopback local;
-- smoke test de interfaz;
-- compilación con PyInstaller.
+- Pinturas
+- Materiales
+- Compras
+- Miniaturas
+  - Star Wars: Legion
+  - Warhammer Age of Sigmar
 
-**Pendiente:** validar manualmente en Windows la reproducción real del mismo vídeo de YouTube que produjo Error 153 / bloqueo de Chromium en versiones anteriores. La reproducción interna no se considera cerrada hasta superar esa prueba real.
-
-El código de la 0.9.4 todavía **no está fusionado en `main`**. El PR permanece en estado draft mientras continúa la validación.
+El módulo de Miniaturas se considera cerrado para la 1.0 salvo errores importantes.
 
 ## Datos locales
 
-Los datos del usuario se almacenan fuera del ejecutable en:
+Los datos del usuario permanecen fuera del ejecutable en:
 
 `%LOCALAPPDATA%\CirosPaint\`
 
@@ -51,20 +47,10 @@ La base de datos principal se encuentra en:
 
 `%LOCALAPPDATA%\CirosPaint\ciros_paint.db`
 
-De este modo, sustituir o actualizar el ejecutable no elimina ni sobrescribe el inventario local del usuario.
+Actualizar el ejecutable no debe sustituir ni borrar el inventario local.
 
 ## Build de Windows
 
-El repositorio utiliza GitHub Actions y PyInstaller para generar el ejecutable autocontenido de Windows.
+GitHub Actions reconstruye la línea estable a partir de las fuentes y overlays verificados y genera un ejecutable autocontenido mediante PyInstaller.
 
-Build verificado actual:
-
-`CirosPaint_0.9.4.exe`
-
-Artefacto de GitHub Actions:
-
-`CirosPaint-Windows-0.9.4`
-
-SHA256 del ejecutable verificado:
-
-`2f7d3275dc9b083d7d6eddcb7bcaf6556cfc10e632126306e8657cd45fdc5c5d`
+En `main`, el workflow reconstruye el estado final validado de la familia 0.8. Las ramas `build/verify-*` tienen sus propios workflows para comprobar las versiones en desarrollo antes de consolidarlas.

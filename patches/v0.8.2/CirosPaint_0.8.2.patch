@@ -1,0 +1,132 @@
+--- a/THIRD_PARTY_NOTICES.txt
++++ b/THIRD_PARTY_NOTICES.txt
+@@ -9,7 +9,7 @@
+ 
+ Brand logo image assets for Vallejo, AK Interactive and Citadel are packaged from the same MIT-licensed catalog repository. Brand names, logos and trademarks remain the property of their respective owners.
+ 
+-Ciros Paint 0.8.1 also embeds selected miniature-game promotional/reference images downloaded during the Windows build from official publisher websites. These images are used for personal, non-commercial collection organisation only. Ciros Paint does not claim ownership of them.
++Ciros Paint 0.8.2 also embeds selected miniature-game promotional/reference images downloaded during the Windows build from official publisher websites. These images are used for personal, non-commercial collection organisation only. Ciros Paint does not claim ownership of them.
+ 
+ Star Wars: Legion reference imagery: Atomic Mass Games / Asmodee. Star Wars and associated names, characters, artwork and marks are property of Lucasfilm Ltd. and their licensors.
+ 
+--- a/app/core/config.py
++++ b/app/core/config.py
+@@ -5,7 +5,7 @@
+ 
+ APP_NAME = "CirosPaint"
+ DISPLAY_NAME = "Ciros Paint"
+-APP_VERSION = "0.8.1"
++APP_VERSION = "0.8.2"
+ 
+ 
+ def app_data_dir() -> Path:
+--- a/app/ui/main_window.py
++++ b/app/ui/main_window.py
+@@ -108,7 +108,7 @@
+             if index == 0:
+                 button.setChecked(True)
+         side_layout.addStretch()
+-        version = QLabel("v0.8.1 · Local")
++        version = QLabel("v0.8.2 · Local")
+         version.setObjectName("Muted")
+         version.setAlignment(Qt.AlignCenter)
+         side_layout.addWidget(version)
+--- a/app/ui/pages/assistant_page.py
++++ b/app/ui/pages/assistant_page.py
+@@ -22,7 +22,7 @@
+             "• “Añádeme un Neutral Grey de AK Interactive.”\n"
+             "• “Quiero pintar un Stormtrooper con desgaste.”\n"
+             "• “¿Qué grises oscuros tengo?”\n\n"
+-            "En 0.8.1 esta pantalla no envía datos a ningún servicio externo."
++            "En 0.8.2 esta pantalla no envía datos a ningún servicio externo."
+         )
+         self.input = QLineEdit()
+         self.input.setPlaceholderText("Escribe una consulta...")
+--- a/app/ui/pages/dashboard_page.py
++++ b/app/ui/pages/dashboard_page.py
+@@ -42,7 +42,7 @@
+         info = QFrame()
+         info.setObjectName("Card")
+         info_layout = QVBoxLayout(info)
+-        info_title = QLabel("Ciros Paint 0.8.1")
++        info_title = QLabel("Ciros Paint 0.8.2")
+         info_title.setStyleSheet("font-size: 14pt; font-weight: 700;")
+         info_text = QLabel(
+             "Inventario de pinturas rediseñado para colecciones grandes: tarjetas compactas, filtros combinables, "
+--- a/app/ui/pages/miniatures_page.py
++++ b/app/ui/pages/miniatures_page.py
+@@ -340,9 +340,17 @@
+         self.add_unit_btn = QPushButton("+ Añadir miniatura")
+         self.add_unit_btn.setObjectName("PrimaryButton")
+         self.add_unit_btn.clicked.connect(self.add_unit)
+-        delete_faction = QPushButton("Eliminar facción")
+-        delete_faction.setObjectName("DangerButton")
+-        delete_faction.clicked.connect(self.delete_current_faction)
++        self.delete_faction_btn = QPushButton("Eliminar facción")
++        self.delete_faction_btn.setObjectName("DangerCompactButton")
++        self.delete_faction_btn.setMaximumWidth(126)
++        self.delete_faction_btn.clicked.connect(self.delete_current_faction)
++
++        right_actions = QVBoxLayout()
++        right_actions.setContentsMargins(0, 0, 0, 0)
++        right_actions.setSpacing(5)
++        right_actions.setAlignment(Qt.AlignRight | Qt.AlignTop)
++        right_actions.addWidget(self.delete_faction_btn, 0, Qt.AlignRight)
++        right_actions.addWidget(self.add_unit_btn, 0, Qt.AlignRight)
+ 
+         actions = QHBoxLayout()
+         actions.addWidget(back)
+@@ -350,8 +358,7 @@
+         actions.addWidget(self.filter_state)
+         actions.addWidget(clear)
+         actions.addStretch()
+-        actions.addWidget(delete_faction)
+-        actions.addWidget(self.add_unit_btn)
++        actions.addLayout(right_actions)
+ 
+         self.collection_title = QLabel()
+         self.collection_title.setObjectName("PageTitle")
+@@ -537,11 +544,13 @@
+     def _cards_grid(self, items, faction):
+         grid = QGridLayout()
+         grid.setSpacing(10)
++        grid.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+         columns = max(3, min(5, max(740, self.width() - 290) // 220))
+         for index, (entry, unit) in enumerate(items):
+             card = UnitCard(entry, unit, faction)
+             card.clicked_entry.connect(self.edit_entry)
+-            grid.addWidget(card, index // columns, index % columns)
++            grid.addWidget(card, index // columns, index % columns, Qt.AlignTop | Qt.AlignLeft)
++        grid.setColumnStretch(columns, 1)
+         return grid
+ 
+     def add_unit(self):
+--- a/app/ui/styles.py
++++ b/app/ui/styles.py
+@@ -48,6 +48,15 @@
+     padding: 8px 12px;
+ }
+ QPushButton#DangerButton:disabled { color: #75535a; background: #1d1518; border-color: #392127; }
++QPushButton#DangerCompactButton {
++    background: #24171b;
++    color: #d9959f;
++    border: 1px solid #4d2931;
++    border-radius: 6px;
++    padding: 4px 8px;
++    font-size: 8.5pt;
++}
++QPushButton#DangerCompactButton:hover { background: #301b20; color: #ffbdc6; border-color: #63303a; }
+ QLineEdit, QComboBox, QSpinBox, QTextEdit, QListWidget {
+     background: #171d27;
+     border: 1px solid #303949;
+--- a/tools/download_miniature_assets.py
++++ b/tools/download_miniature_assets.py
+@@ -12,7 +12,7 @@
+ ROOT = Path(__file__).resolve().parents[1]
+ CATALOG = ROOT / "app" / "data" / "miniature_catalog.json"
+ ASSETS = ROOT / "app" / "assets"
+-USER_AGENT = "Mozilla/5.0 CirosPaint/0.8.1"
++USER_AGENT = "Mozilla/5.0 CirosPaint/0.8.2"
+ ASSEMBLY_URL = "https://www.atomicmassgames.com/assembly/"
+ 
+ 

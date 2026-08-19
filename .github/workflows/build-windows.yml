@@ -10,85 +10,94 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
-      - name: Rebuild verified Ciros Paint 0.4 source
+      - name: Rebuild consolidated Ciros Paint 0.8
         shell: pwsh
         run: |
-          $parts = Get-ChildItem 'source/v0.4/chunks/part*.txt' | Sort-Object Name
-          if ($parts.Count -ne 5) { throw "Expected 5 source chunks, found $($parts.Count)." }
-          $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
-          [IO.File]::WriteAllBytes('source/CirosPaint_0.4.rebuilt.zip', [Convert]::FromBase64String($b64))
-          $hash = (Get-FileHash 'source/CirosPaint_0.4.rebuilt.zip' -Algorithm SHA256).Hash.ToLower()
-          if ($hash -ne '95b07d62152398438a127686eb4560952bd1ea2412f39267cce98c149365bff1') {
-            throw "Source ZIP hash mismatch: $hash"
+          function Rebuild-Zip($pattern, $expectedCount, $output, $expectedHash) {
+            $parts = Get-ChildItem $pattern | Sort-Object Name
+            if ($parts.Count -ne $expectedCount) { throw "Unexpected chunk count for ${pattern}: $($parts.Count)" }
+            $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
+            [IO.File]::WriteAllBytes($output, [Convert]::FromBase64String($b64))
+            $hash = (Get-FileHash $output -Algorithm SHA256).Hash.ToLower()
+            if ($hash -ne $expectedHash) { throw "Hash mismatch for ${output}: $hash" }
+            Write-Host "Verified $output $hash"
           }
-          Write-Host "Verified Ciros Paint 0.4 source SHA256: $hash"
 
-      - name: Extract source base
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path build_source | Out-Null
-          tar -xf source/CirosPaint_0.4.rebuilt.zip -C build_source
+          Rebuild-Zip 'source/v0.6/chunks/part*.txt' 7 'source/CirosPaint_0.6.zip' '6e49c42e7d3ccfcf219ea24f164a8c436c7875eb56084318242dcb3171337b94'
+          New-Item -ItemType Directory -Force build_source | Out-Null
+          tar -xf source/CirosPaint_0.6.zip -C build_source
 
-      - name: Rebuild and apply Ciros Paint 0.5 patch
-        shell: pwsh
-        run: |
-          $parts = Get-ChildItem 'patches/v0.5/chunks/part*.txt' | Sort-Object Name
-          if ($parts.Count -ne 2) { throw "Expected 2 patch chunks, found $($parts.Count)." }
-          $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
-          [IO.File]::WriteAllBytes('patches/CirosPaint_0.5.patch.zip', [Convert]::FromBase64String($b64))
-          $hash = (Get-FileHash 'patches/CirosPaint_0.5.patch.zip' -Algorithm SHA256).Hash.ToLower()
-          if ($hash -ne 'b7f18f650b77a114ffbe574e0698bdabf0958d9615539692215dd5ac937af849') {
-            throw "Patch ZIP hash mismatch: $hash"
+          Rebuild-Zip 'patches/v0.7/chunks/part*.txt' 5 'patches/CirosPaint_0.7.zip' 'aa0d1fc99b0770425081f0e18cbb399440cab77768ea36887d33038947721620'
+          tar -xf patches/CirosPaint_0.7.zip -C build_source
+
+          Rebuild-Zip 'patches/v0.8/chunks/part*.txt' 4 'patches/CirosPaint_0.8.zip' 'b30570d26f44aa0e5bf2727910396628e4ab8fc646ddacd49527991cde8d3b90'
+          tar -xf patches/CirosPaint_0.8.zip -C build_source
+
+          Rebuild-Zip 'patches/v0.8-artfix/chunks/part*.txt' 1 'patches/CirosPaint_0.8_artfix.zip' '3947092144570548e962b354ec0b7d6fa7b1f6416a2e0fbafa656b450945cbad'
+          tar -xf patches/CirosPaint_0.8_artfix.zip -C build_source
+
+          Rebuild-Zip 'patches/v0.8.1/chunks/part*.txt' 9 'patches/CirosPaint_0.8.1.zip' 'ed47500df62010bb9d9f5fb26d09b1174a84787eb80d50c3251db3d433d7ce02'
+          tar -xf patches/CirosPaint_0.8.1.zip -C build_source
+
+          python -c "from pathlib import Path; p=Path(r'patches/v0.8.2/CirosPaint_0.8.2.patch'); p.write_bytes(p.read_text(encoding='utf-8').encode('utf-8'))"
+          git apply --directory=build_source patches/v0.8.2/CirosPaint_0.8.2.patch
+          if ($LASTEXITCODE -ne 0) { throw 'Could not apply Ciros Paint 0.8.2 patch' }
+
+          Rebuild-Zip 'patches/v0.8.3/chunks/part*.txt' 12 'patches/CirosPaint_0.8.3_overlay.zip' '185e2b09264544498de8da2d73e5f2c148b0a57b3fec6437bd7c22676b5b7dd9'
+          tar -xf patches/CirosPaint_0.8.3_overlay.zip -C build_source
+          Push-Location build_source
+          python tools/apply_v083_metadata.py
+          Pop-Location
+
+          # Preserve the final verified hotfix of the 0.8 family (formerly 0.8.3.1).
+          $dashboardPath = 'build_source/app/ui/pages/dashboard_page.py'
+          $dashboard = Get-Content $dashboardPath -Raw
+          $dashboard = $dashboard.Replace('Ciros Paint 0.8.3.3', 'Ciros Paint 0.8.3.1')
+          Set-Content $dashboardPath $dashboard -Encoding utf8
+          if ((Get-Content $dashboardPath -Raw) -notmatch 'Ciros Paint 0\.8\.3\.1') {
+            throw 'Could not preserve the final 0.8 dashboard hotfix.'
           }
-          tar -xf patches/CirosPaint_0.5.patch.zip -C build_source
-          $path = "$env:GITHUB_WORKSPACE\build_source\app\ui\main_window.py"
-          (Get-Content $path -Raw).Replace('v0.4 · Local','v0.5 · Local') | Set-Content $path -Encoding utf8
-          $path = "$env:GITHUB_WORKSPACE\build_source\app\ui\pages\dashboard_page.py"
-          (Get-Content $path -Raw).Replace('Ciros Paint 0.4','Ciros Paint 0.5') | Set-Content $path -Encoding utf8
-          $path = "$env:GITHUB_WORKSPACE\build_source\app\ui\pages\assistant_page.py"
-          (Get-Content $path -Raw).Replace('En 0.4 esta pantalla','En 0.5 esta pantalla') | Set-Content $path -Encoding utf8
-          Write-Host "Verified and applied Ciros Paint 0.5 patch SHA256: $hash"
+          Write-Host 'Consolidated Ciros Paint 0.8 source reconstructed'
 
-      - name: Set up paint catalog and brand logos
+      - name: Set up paint catalog and dependencies
         shell: pwsh
         run: |
           git init catalog_source
           git -C catalog_source remote add origin https://github.com/Arcturus5404/miniature-paints.git
           git -C catalog_source fetch --depth 1 origin 22791a682e1d155da388f4f856cd7196cd9f2677
           git -C catalog_source checkout FETCH_HEAD
-          New-Item -ItemType Directory -Force -Path build_source/app/assets/brands | Out-Null
+          New-Item -ItemType Directory -Force build_source/app/assets/brands | Out-Null
           Copy-Item catalog_source/logos/Vallejo.png build_source/app/assets/brands/vallejo.png
           Copy-Item catalog_source/logos/AK.png build_source/app/assets/brands/ak_interactive.png
           Copy-Item catalog_source/logos/Citadel_Colour.png build_source/app/assets/brands/citadel.png
-          if (!(Test-Path 'build_source/app/assets/brands/vallejo.png')) { throw 'Vallejo logo missing' }
-          if (!(Test-Path 'build_source/app/assets/brands/ak_interactive.png')) { throw 'AK Interactive logo missing' }
-          if (!(Test-Path 'build_source/app/assets/brands/citadel.png')) { throw 'Citadel logo missing' }
-
-      - name: Install dependencies
-        shell: pwsh
-        working-directory: build_source
-        run: |
+          cd build_source
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip install pyinstaller
 
-      - name: Build embedded paint catalog
+      - name: Build catalogs and official miniature artwork
         shell: pwsh
         working-directory: build_source
         run: |
           $env:PYTHONPATH = (Get-Location).Path
           python tools/build_paint_catalog.py "$env:GITHUB_WORKSPACE\catalog_source" app/data/paint_catalog.json
-          python -c "import json, pathlib; d=json.loads(pathlib.Path('app/data/paint_catalog.json').read_text(encoding='utf-8')); assert len(d)>500; assert any(x['brand']=='Vallejo' and x['name']=='Ice Yellow' and x['code']=='70.858' and x['range_name']=='Model Color' for x in d); assert any(x['brand']=='AK Interactive' and x['name']=='Admirality Light Grey' and x['code']=='AK5035' and x['range_name']=='Naval' for x in d); assert any(x['brand']=='Citadel' and x['name']=='Abaddon Black' and x['range_name']=='Base' for x in d); print('Catalog entries:', len(d))"
+          python tools/download_miniature_assets.py
+          python -c "import json,pathlib; p=json.loads(pathlib.Path('app/data/paint_catalog.json').read_text(encoding='utf-8')); m=json.loads(pathlib.Path('app/data/miniature_catalog.json').read_text(encoding='utf-8')); assert len(p)>500; assert all(isinstance(x.get('rgb'),list) and len(x['rgb'])==3 and isinstance(x.get('lab'),list) and len(x['lab'])==3 for x in p); assert m.get('catalog_revision')=='0.8.1'; assert sum(len(f['units']) for g in m['games'] for f in g['factions'])>500; aos=next(g for g in m['games'] if g['name']=='Age of Sigmar'); assert all(f.get('image_asset') and f.get('image_url') for f in aos['factions']); assert len({f['image_asset'] for f in aos['factions']})==len(aos['factions']); print('Catalogs and hidden CIELAB metadata OK')"
+          if (!(Test-Path 'app/assets/miniatures/games/star_wars_legion.webp')) { throw 'Star Wars Legion banner missing' }
+          if (!(Test-Path 'app/assets/miniatures/games/age_of_sigmar_battle.jpg')) { throw 'Age of Sigmar battle banner missing' }
+          foreach ($icon in @('sw_empire.svg','sw_rebels.svg','sw_republic.svg','sw_separatists.svg','sw_mercenaries.svg','sw_mandalorians.svg')) {
+            if (!(Test-Path "app/assets/miniatures/icons/$icon")) { throw "Faction icon missing: $icon" }
+          }
+          foreach ($art in @('swq11-stormtroopers.webp','swq12-scout-troopers.webp','swq103-commander-darth-vader-and-general-veers.webp','swq207-74-z-speeder-bike.webp','swq205-imperial-death-troopers.webp')) {
+            if (!(Test-Path "app/assets/miniatures/products/legion/$art")) { throw "Legion unit artwork missing: $art" }
+          }
 
       - name: Run tests
         shell: pwsh
@@ -102,25 +111,22 @@ jobs:
         working-directory: build_source
         run: |
           $env:QT_QPA_PLATFORM = 'offscreen'
-          python -c "from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.ui.dialogs.paint_dialog import PaintDialog; from app.ui.pages.paints_page import PaintsPage, _brand_logo_path; d=PaintDialog(); before=d.available_units.value(); d.available_units.up_button.click(); assert d.available_units.value()==before+1; d.available_units.down_button.click(); assert d.available_units.value()==before; assert _brand_logo_path('Vallejo').is_file(); assert _brand_logo_path('Citadel').is_file(); assert _brand_logo_path('AK Interactive').is_file(); print('Ciros Paint 0.5 UI smoke test OK')"
+          $env:PYTHONPATH = (Get-Location).Path
+          python -c "from types import SimpleNamespace; from PySide6.QtCore import Qt; from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.db.database import init_database; init_database(); from app.ui.pages.miniatures_page import MiniaturesPage,UnitCard; from app.services.miniature_catalog_service import MiniatureCatalogService; p=MiniaturesPage(); assert [b.game['name'] for b in p.game_banners]==['Star Wars: Legion','Age of Sigmar']; assert p.state_buttons[None].isChecked(); fac=MiniatureCatalogService.faction('Star Wars: Legion','Imperio Galáctico'); unit=MiniatureCatalogService.unit('Star Wars: Legion','Imperio Galáctico','Stormtroopers'); entry=SimpleNamespace(id=1,unit_name='Stormtroopers',total_count=24,unassembled_count=4,assembled_count=7,painted_count=8,finished_count=5); card=UnitCard(entry,unit,fac,'Pintado'); assert card.qty.text()=='8'; aos=MiniatureCatalogService.faction('Age of Sigmar','Seraphon'); aos_unit=MiniatureCatalogService.unit('Age of Sigmar','Seraphon','Saurus Warriors'); aos_entry=SimpleNamespace(id=2,unit_name='Saurus Warriors',total_count=10,unassembled_count=2,assembled_count=3,painted_count=4,finished_count=1); aos_card=UnitCard(aos_entry,aos_unit,aos); assert aos_card.art.faction_fallback==aos['image_asset']; from app.core.config import APP_VERSION; assert APP_VERSION=='0.8.3'; assert 'Ciros Paint 0.8.3.1' in open('app/ui/pages/dashboard_page.py',encoding='utf-8').read(); print('Consolidated Ciros Paint 0.8 UI smoke test OK')"
 
-      - name: Build CirosPaint.exe
+      - name: Build CirosPaint_0.8.exe
         shell: pwsh
         working-directory: build_source
         run: |
-          python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint --add-data "app/data/paint_catalog.json;app/data" --add-data "app/assets/brands;app/assets/brands" --add-data "THIRD_PARTY_NOTICES.txt;." main.py
+          python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint --add-data "app/data/paint_catalog.json;app/data" --add-data "app/data/miniature_catalog.json;app/data" --add-data "app/assets/brands;app/assets/brands" --add-data "app/assets/miniatures;app/assets/miniatures" --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "MINIATURE_ASSET_SOURCES.md;." main.py
+          if (!(Test-Path 'dist/CirosPaint.exe')) { throw 'CirosPaint.exe was not generated' }
+          Move-Item 'dist/CirosPaint.exe' 'dist/CirosPaint_0.8.exe'
+          $exeHash = (Get-FileHash 'dist/CirosPaint_0.8.exe' -Algorithm SHA256).Hash.ToLower()
+          Write-Host "CirosPaint_0.8.exe SHA256: $exeHash"
 
-      - name: Smoke-check executable exists
-        shell: pwsh
-        working-directory: build_source
-        run: |
-          if (-not (Test-Path 'dist/CirosPaint.exe')) { throw 'CirosPaint.exe was not generated.' }
-          Get-Item 'dist/CirosPaint.exe' | Format-List Name,Length,FullName
-
-      - name: Upload Windows executable
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: CirosPaint-Windows-0.5
-          path: build_source/dist/CirosPaint.exe
+          name: CirosPaint-Windows-0.8
+          path: build_source/dist/CirosPaint_0.8.exe
           if-no-files-found: error
           retention-days: 30
