@@ -5,7 +5,7 @@ on:
   push:
     branches: [build/verify-0.9.4]
   pull_request:
-    branches: [main]
+    branches: [main, build/verify-0.9.3]
 
 jobs:
   build:
