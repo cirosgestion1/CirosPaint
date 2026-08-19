@@ -3,7 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 import unittest
 
-from app.db.database import get_session
+from app.db.database import get_session, init_database
 from app.repositories.paint_repository import PaintRepository
 from app.repositories.shopping_repository import ShoppingRepository
 from app.services.favorite_paint_purchase_service import FavoritePaintPurchaseService
@@ -11,6 +11,9 @@ from app.services.favorite_paint_purchase_service import FavoritePaintPurchaseSe
 
 class FavoritePaintPurchaseIntegrationV0102Tests(unittest.TestCase):
     def test_original_catalog_paint_reaches_real_future_purchase_repository(self):
+        # Mirror the normal application startup so the real SQLite schema exists.
+        init_database()
+
         source = SimpleNamespace(
             brand="Ciros Paint Test",
             name="Integration Scarlet 0102",
@@ -45,7 +48,7 @@ class FavoritePaintPurchaseIntegrationV0102Tests(unittest.TestCase):
             self.assertEqual(entry.stage, "future")
             self.assertEqual(entry.quantity, 1)
 
-            # A second click must not duplicate or change the existing future entry.
+            # A second click must not duplicate or alter the existing future entry.
             self.assertEqual(FavoritePaintPurchaseService(session).add_to_future(source), "already")
             entries = [item for item in shopping_repo.list_future() if item.paint_id == paint.id]
             self.assertEqual(len(entries), 1)
