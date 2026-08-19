@@ -65,10 +65,14 @@ jobs:
           Copy-Item build_source/app/ui/pages/tutorial_search_page.py inspection/tutorial_search_page.py
           Copy-Item build_source/app/ui/pages/miniatures_page.py inspection/miniatures_page.py
           Copy-Item build_source/app/core/config.py inspection/config.py
+          Copy-Item build_source/app/models/library.py inspection/library_model.py
+          Copy-Item build_source/app/ui/main_window.py inspection/main_window.py
+          Copy-Item build_source/app/ui/pages/dashboard_page.py inspection/dashboard_page.py
+          Copy-Item build_source/app/ui/styles.py inspection/styles.py
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add inspection
           if (!(git diff --cached --quiet)) {
-            git commit -m "Export reconstructed 0.9.0 source for 0.9.1"
+            git commit -m "Export additional reconstructed 0.9.0 source"
             git push
           }
