@@ -66,10 +66,16 @@ jobs:
       - name: Print relevant source
         shell: pwsh
         run: |
-          Write-Host '=== FILE LIST ==='
-          Get-ChildItem build_source/app -Recurse -File | Where-Object { $_.Name -match 'paint|library|database|model|catalog|settings' } | ForEach-Object { Write-Host $_.FullName }
-          Write-Host '=== RELEVANT CONTENT ==='
-          Get-ChildItem build_source/app -Recurse -File | Where-Object { $_.Name -in @('paint.py','paint_repository.py','library_repository.py','database.py','paint_catalog_service.py','models.py') -or $_.Name -match 'paint.*repository|paint.*service|library.*model' } | ForEach-Object {
-            Write-Host "`n===== $($_.FullName) ====="
-            Get-Content $_.FullName -Raw
+          foreach ($path in @(
+            'build_source/app/models/library.py',
+            'build_source/app/core/color_math.py',
+            'build_source/app/constants/catalog.py',
+            'build_source/app/repositories/paint_repository.py',
+            'build_source/app/repositories/library_repository.py',
+            'build_source/app/services/paint_catalog_service.py'
+          )) {
+            Write-Host "`n===== $path ====="
+            Get-Content $path -Raw
           }
+          Write-Host "`n===== PAINT TYPE REFERENCES ====="
+          Select-String -Path 'build_source/app/ui/pages/paints_page.py','build_source/app/ui/dialogs/paint_dialog.py' -Pattern 'paint_type|PAINT_TYPE|Acrílico|Shade|Wash|Esmalte|Tinta|Óleo|Oleo' -Context 1,2 | ForEach-Object { $_.ToString() }
