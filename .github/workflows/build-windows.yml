@@ -1,9 +1,9 @@
-name: Build Windows EXE
+name: Build Windows Personal Package
 
 on:
   workflow_dispatch:
   push:
-    branches: [build/verify-0.10.3]
+    branches: [build/verify-0.10.3a]
   pull_request:
     branches: [main]
 
@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Rebuild Ciros Paint 0.9 and apply 0.10.3
+      - name: Rebuild Ciros Paint 0.9 and apply 0.10.3a
         shell: pwsh
         run: |
           function Rebuild-Zip($pattern, $expectedCount, $output, $expectedHash) {
@@ -102,7 +102,10 @@ jobs:
           Copy-Item 'patches/v0.10.3/overlay/tests/*' 'build_source/tests' -Recurse -Force
           python patches/v0.10.3/apply_v0103.py build_source
 
-          python -c "from pathlib import Path; ns={}; exec(Path('build_source/app/core/config.py').read_text(encoding='utf-8'), ns); assert ns['APP_VERSION']=='0.10.3'; s=Path('build_source/app/services/assistant_paint_service.py').read_text(encoding='utf-8'); assert 'class AssistantPaintService' in s and 'find_paint_alternatives' in s and 'set_paint_quantity' in s; r=Path('build_source/app/services/assistant_tool_registry.py').read_text(encoding='utf-8'); assert 'search_paints' in r and 'add_paint_to_future_purchases' in r; scope=Path('build_source/app/services/assistant_scope.py').read_text(encoding='utf-8'); assert 'análisis de imágenes se limita exclusivamente a pinturas' in scope; session=Path('build_source/app/services/assistant_session_store.py').read_text(encoding='utf-8'); assert 'In-memory conversation storage only' in session; print('Ciros Paint 0.10.3 assistant foundation overlay verified')"
+          Copy-Item 'patches/v0.10.3a/overlay/tests/*' 'build_source/tests' -Recurse -Force
+          python patches/v0.10.3a/apply_v0103a.py build_source
+
+          python -c "from pathlib import Path; ns={}; exec(Path('build_source/app/core/config.py').read_text(encoding='utf-8'), ns); assert ns['APP_VERSION']=='0.10.3a'; assert Path('build_source/CirosPaint.cmd').is_file(); assert Path('build_source/CirosPaint_DEBUG.cmd').is_file(); assert Path('build_source/LEEME_0.10.3a.txt').is_file(); print('Ciros Paint 0.10.3a personal launcher overlay verified')"
 
       - name: Set up paint catalog and dependencies
         shell: pwsh
@@ -118,7 +121,6 @@ jobs:
           cd build_source
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-          python -m pip install pyinstaller
 
       - name: Build catalogs and verify assets
         shell: pwsh
@@ -138,29 +140,46 @@ jobs:
           $env:PYTHONPATH = (Get-Location).Path
           python -m unittest discover -s tests -v
 
-      - name: UI paint-analysis smoke test
+      - name: UI smoke test
         shell: pwsh
         working-directory: build_source
         run: |
           $env:QT_QPA_PLATFORM = 'offscreen'
           $env:PYTHONPATH = (Get-Location).Path
-          python -c "from types import SimpleNamespace; from PySide6.QtWidgets import QApplication,QLabel; app=QApplication([]); from app.core.config import APP_VERSION; assert APP_VERSION=='0.10.3'; from app.services.favorite_category_service import FavoriteCategoryService; from app.services.favorite_paint_analysis_service import PaintAnalysisResult; from app.ui.pages.favorites_page import FavoriteCard; from app.ui.dialogs.paint_analysis_dialog import PaintAnalysisDialog; fav=SimpleNamespace(video_id='dQw4w9WgXcQ',title='Test',channel_title='Channel',description='',thumbnail_url='',video_url='https://www.youtube.com/watch?v=dQw4w9WgXcQ',duration_text='1:00',published_at='2026-01-01T00:00:00Z',view_count=1,like_count=1); mini=FavoriteCard(fav,FavoriteCategoryService.MINIATURES,lambda:None,lambda:None); general=FavoriteCard(fav,FavoriteCategoryService.GENERAL,lambda:None,lambda:None); assert mini.analyze_paints_button is not None and mini.view_paints_button is not None and mini.view_paints_button.isHidden(); assert general.analyze_paints_button is None and general.view_paints_button is None; r=PaintAnalysisResult((),(),(),()); dlg=PaintAnalysisDialog('Test',r); text=' | '.join(x.text() for x in dlg.findChildren(QLabel)); assert 'No se han encontrado pinturas en la descripción del vídeo.' in text; mini.close(); general.close(); dlg.close(); print('Ciros Paint 0.10.3 paint analysis UI smoke test OK')"
+          python -c "from types import SimpleNamespace; from PySide6.QtWidgets import QApplication,QLabel; app=QApplication([]); from app.core.config import APP_VERSION; assert APP_VERSION=='0.10.3a'; from app.services.favorite_category_service import FavoriteCategoryService; from app.services.favorite_paint_analysis_service import PaintAnalysisResult; from app.ui.pages.favorites_page import FavoriteCard; from app.ui.dialogs.paint_analysis_dialog import PaintAnalysisDialog; fav=SimpleNamespace(video_id='dQw4w9WgXcQ',title='Test',channel_title='Channel',description='',thumbnail_url='',video_url='https://www.youtube.com/watch?v=dQw4w9WgXcQ',duration_text='1:00',published_at='2026-01-01T00:00:00Z',view_count=1,like_count=1); mini=FavoriteCard(fav,FavoriteCategoryService.MINIATURES,lambda:None,lambda:None); general=FavoriteCard(fav,FavoriteCategoryService.GENERAL,lambda:None,lambda:None); assert mini.analyze_paints_button is not None and mini.view_paints_button is not None and mini.view_paints_button.isHidden(); assert general.analyze_paints_button is None and general.view_paints_button is None; r=PaintAnalysisResult((),(),(),()); dlg=PaintAnalysisDialog('Test',r); text=' | '.join(x.text() for x in dlg.findChildren(QLabel)); assert 'No se han encontrado pinturas en la descripción del vídeo.' in text; mini.close(); general.close(); dlg.close(); print('Ciros Paint 0.10.3a UI smoke test OK')"
 
-      - name: Build CirosPaint_0.10.3.exe
+      - name: Personal launcher detection smoke test
         shell: pwsh
         working-directory: build_source
         run: |
-          python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint --add-data "app/data/paint_catalog.json;app/data" --add-data "app/data/miniature_catalog.json;app/data" --add-data "app/assets/brands;app/assets/brands" --add-data "app/assets/miniatures;app/assets/miniatures" --add-data "app/assets/favorites;app/assets/favorites" --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "MINIATURE_ASSET_SOURCES.md;." main.py
-          if (!(Test-Path 'dist/CirosPaint.exe')) { throw 'CirosPaint.exe was not generated' }
-          Move-Item 'dist/CirosPaint.exe' 'dist/CirosPaint_0.10.3.exe'
-          if (!(Test-Path 'dist/CirosPaint_0.10.3.exe')) { throw 'CirosPaint_0.10.3.exe was not generated' }
-          Get-Item dist/CirosPaint_0.10.3.exe | Format-List Name,Length,FullName
-          $exeHash = (Get-FileHash 'dist/CirosPaint_0.10.3.exe' -Algorithm SHA256).Hash.ToLower()
-          Write-Host "CirosPaint_0.10.3.exe SHA256: $exeHash"
+          $env:CIROSPAINT_LAUNCHER_TEST = '1'
+          cmd /d /c CirosPaint.cmd
+          if ($LASTEXITCODE -ne 0) { throw "CirosPaint.cmd launcher detection failed with code $LASTEXITCODE" }
+
+      - name: Package Ciros Paint 0.10.3a personal edition
+        shell: pwsh
+        working-directory: build_source
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $stage = 'dist/CirosPaint_0.10.3a_personal'
+          New-Item -ItemType Directory -Force $stage | Out-Null
+          Copy-Item 'app' "$stage/app" -Recurse -Force
+          Copy-Item 'main.py' "$stage/main.py" -Force
+          Copy-Item 'requirements.txt' "$stage/requirements.txt" -Force
+          Copy-Item 'CirosPaint.cmd' "$stage/CirosPaint.cmd" -Force
+          Copy-Item 'CirosPaint_DEBUG.cmd' "$stage/CirosPaint_DEBUG.cmd" -Force
+          Copy-Item 'LEEME_0.10.3a.txt' "$stage/LEEME_0.10.3a.txt" -Force
+          if (Test-Path 'THIRD_PARTY_NOTICES.txt') { Copy-Item 'THIRD_PARTY_NOTICES.txt' "$stage/THIRD_PARTY_NOTICES.txt" -Force }
+          if (Test-Path 'MINIATURE_ASSET_SOURCES.md') { Copy-Item 'MINIATURE_ASSET_SOURCES.md' "$stage/MINIATURE_ASSET_SOURCES.md" -Force }
+          Compress-Archive -Path "$stage/*" -DestinationPath 'dist/CirosPaint_0.10.3a_personal.zip' -CompressionLevel Optimal -Force
+          if (!(Test-Path 'dist/CirosPaint_0.10.3a_personal.zip')) { throw 'Personal source ZIP was not generated' }
+          Get-Item 'dist/CirosPaint_0.10.3a_personal.zip' | Format-List Name,Length,FullName
+          $zipHash = (Get-FileHash 'dist/CirosPaint_0.10.3a_personal.zip' -Algorithm SHA256).Hash.ToLower()
+          Write-Host "CirosPaint_0.10.3a_personal.zip SHA256: $zipHash"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CirosPaint-Windows-0.10.3
-          path: build_source/dist/CirosPaint_0.10.3.exe
+          name: CirosPaint-Personal-0.10.3a
+          path: build_source/dist/CirosPaint_0.10.3a_personal.zip
           if-no-files-found: error
           retention-days: 30
