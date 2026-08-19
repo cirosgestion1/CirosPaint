@@ -2,8 +2,6 @@ name: Build Windows EXE
 
 on:
   workflow_dispatch:
-  push:
-    branches: [build/verify-0.9.3]
   pull_request:
     branches: [main]
 
@@ -17,7 +15,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Rebuild Ciros Paint 0.9.2 base and apply 0.9.3
+      - name: Rebuild Ciros Paint 0.9.3 base and apply 0.9.4
         shell: pwsh
         run: |
           function Rebuild-Zip($pattern, $expectedCount, $output, $expectedHash) {
@@ -76,7 +74,11 @@ jobs:
           Copy-Item 'patches/v0.9.3/overlay/tests/*' 'build_source/tests' -Recurse -Force
           python patches/v0.9.3/apply_v093.py build_source
 
-          python -c "from pathlib import Path; ns={}; exec(Path('build_source/app/core/config.py').read_text(encoding='utf-8'), ns); assert ns['APP_VERSION']=='0.9.3'; p=Path('build_source/app/ui/dialogs/youtube_player_dialog.py').read_text(encoding='utf-8'); assert 'setHtml' in p and 'QWebEngineUrlRequestInterceptor' in p and 'setHttpHeader' in p; y=Path('build_source/app/services/youtube_service.py').read_text(encoding='utf-8'); assert 'relevanceLanguage' in y and 'detect_video_language' in y; u=Path('build_source/app/ui/pages/tutorial_search_page.py').read_text(encoding='utf-8'); assert 'Español' in u and 'Inglés' in u and 'Todos' in u; print('Ciros Paint 0.9.3 overlay verified')"
+          Copy-Item 'patches/v0.9.4/overlay/app/*' 'build_source/app' -Recurse -Force
+          Copy-Item 'patches/v0.9.4/overlay/tests/*' 'build_source/tests' -Recurse -Force
+          python patches/v0.9.4/apply_v094.py build_source
+
+          python -c "from pathlib import Path; ns={}; exec(Path('build_source/app/core/config.py').read_text(encoding='utf-8'), ns); assert ns['APP_VERSION']=='0.9.4'; p=Path('build_source/app/ui/dialogs/youtube_player_dialog.py').read_text(encoding='utf-8'); assert 'LoopbackPlayerServer' in p and 'http://localhost:' in p and 'self.web.load(self._player_server.url)' in p; y=Path('build_source/app/services/youtube_service.py').read_text(encoding='utf-8'); assert 'build_language_search_plan' in y and 'defaultAudioLanguage' in y; q=Path('build_source/app/services/tutorial_query_service.py').read_text(encoding='utf-8'); assert 'language_search_plan' in q and 'localized_search_query' in q; u=Path('build_source/app/ui/pages/tutorial_search_page.py').read_text(encoding='utf-8'); assert 'TutorialLanguageTag' in u and 'language_badge' in u; print('Ciros Paint 0.9.4 overlay verified')"
 
       - name: Set up paint catalog and dependencies
         shell: pwsh
@@ -112,28 +114,28 @@ jobs:
           $env:PYTHONPATH = (Get-Location).Path
           python -m unittest discover -s tests -v
 
-      - name: UI smoke test
+      - name: UI and loopback smoke test
         shell: pwsh
         working-directory: build_source
         run: |
           $env:QT_QPA_PLATFORM = 'offscreen'
           $env:PYTHONPATH = (Get-Location).Path
-          python -c "from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.core.config import APP_VERSION; assert APP_VERSION=='0.9.3'; from app.ui.pages.tutorial_search_page import TutorialSearchPage; p=TutorialSearchPage(); assert [p.language_filter.itemText(i) for i in range(p.language_filter.count())]==['Todos','Español','Inglés']; assert [p.language_filter.itemData(i) for i in range(p.language_filter.count())]==['','es','en']; from app.services.youtube_service import detect_video_language; assert detect_video_language('Cómo pintar una miniatura','Tutorial paso a paso para miniaturas')=='es'; assert detect_video_language('How to paint miniatures','Easy step by step painting tutorial')=='en'; from app.ui.dialogs.youtube_player_dialog import build_youtube_player_html,PLAYER_REFERRER; h=build_youtube_player_html('dQw4w9WgXcQ'); assert '<iframe' in h and 'strict-origin-when-cross-origin' in h and PLAYER_REFERRER.startswith('https://'); print('Ciros Paint 0.9.3 UI smoke test OK')"
+          python -c "from urllib.request import urlopen; from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.core.config import APP_VERSION; assert APP_VERSION=='0.9.4'; from app.ui.pages.tutorial_search_page import TutorialSearchPage,_language_badge; from app.services.youtube_service import TutorialVideo,build_language_search_plan; p=TutorialSearchPage(); assert [p.language_filter.itemText(i) for i in range(p.language_filter.count())]==['Todos','Español','Inglés']; plan=build_language_search_plan('pintar Darth Vader',''); assert [x[1] for x in plan]==['es','en']; assert 'pintar' in plan[0][0] and 'paint' in plan[1][0]; v=TutorialVideo('dQw4w9WgXcQ','How to paint Darth Vader','Test','','','https://www.youtube.com/watch?v=dQw4w9WgXcQ','1:00','2026-01-01T00:00:00Z',1,1,language_code='en'); b=_language_badge(v); assert b.text()=='EN' and b.toolTip()=='Inglés'; from app.ui.dialogs.youtube_player_dialog import LoopbackPlayerServer; s=LoopbackPlayerServer('dQw4w9WgXcQ'); s.start(); r=urlopen(s.url.toString(),timeout=3); h=r.read().decode('utf-8'); assert 'youtube.com/embed/dQw4w9WgXcQ' in h and r.headers.get('Referrer-Policy')=='strict-origin-when-cross-origin'; s.stop(); print('Ciros Paint 0.9.4 UI/loopback smoke test OK')"
 
-      - name: Build CirosPaint_0.9.3.exe
+      - name: Build CirosPaint_0.9.4.exe
         shell: pwsh
         working-directory: build_source
         run: |
           python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint --add-data "app/data/paint_catalog.json;app/data" --add-data "app/data/miniature_catalog.json;app/data" --add-data "app/assets/brands;app/assets/brands" --add-data "app/assets/miniatures;app/assets/miniatures" --add-data "app/assets/favorites;app/assets/favorites" --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "MINIATURE_ASSET_SOURCES.md;." main.py
           if (!(Test-Path 'dist/CirosPaint.exe')) { throw 'CirosPaint.exe was not generated' }
-          Move-Item 'dist/CirosPaint.exe' 'dist/CirosPaint_0.9.3.exe'
-          if (!(Test-Path 'dist/CirosPaint_0.9.3.exe')) { throw 'CirosPaint_0.9.3.exe was not generated' }
-          $exeHash = (Get-FileHash 'dist/CirosPaint_0.9.3.exe' -Algorithm SHA256).Hash.ToLower()
-          Write-Host "CirosPaint_0.9.3.exe SHA256: $exeHash"
+          Move-Item 'dist/CirosPaint.exe' 'dist/CirosPaint_0.9.4.exe'
+          if (!(Test-Path 'dist/CirosPaint_0.9.4.exe')) { throw 'CirosPaint_0.9.4.exe was not generated' }
+          $exeHash = (Get-FileHash 'dist/CirosPaint_0.9.4.exe' -Algorithm SHA256).Hash.ToLower()
+          Write-Host "CirosPaint_0.9.4.exe SHA256: $exeHash"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CirosPaint-Windows-0.9.3
-          path: build_source/dist/CirosPaint_0.9.3.exe
+          name: CirosPaint-Windows-0.9.4
+          path: build_source/dist/CirosPaint_0.9.4.exe
           if-no-files-found: error
           retention-days: 30
