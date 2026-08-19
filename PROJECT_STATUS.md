@@ -2,95 +2,86 @@
 
 Última actualización: **19/08/2026**
 
-## Versión actual
+## Estado actual
 
-**Ciros Paint 0.9.2**
+Familia cerrada: **Ciros Paint 0.9.x**
 
-Estado: **build de Windows generado y verificado automáticamente; pendiente de validación final de reproducción real de YouTube en el equipo del usuario.**
+Última revisión interna validada: **0.9.4.1**
 
-Rama activa: `build/verify-0.9.2`
+Estado a consolidar en `main`: **Ciros Paint 0.9**
 
-PR activo: `#13`
+Siguiente objetivo de desarrollo: **Ciros Paint 1.0**
 
-## Estado funcional
+## Validación final
 
-### Inventario y gestión
+La revisión 0.9.4.1 superó GitHub Actions y fue validada manualmente en Windows.
 
-- Pinturas: operativo.
-- Materiales: operativo.
-- Compras: operativo.
-- Miniaturas: operativo.
-- Catálogo integrado de pinturas: operativo.
-- Star Wars: Legion: operativo.
-- Age of Sigmar: operativo.
+Confirmado en uso real:
 
-### Tutoriales
+- reproducción interna de YouTube operativa;
+- filtro Todos / Español / Inglés operativo;
+- tags de idioma ES / EN / ? operativos;
+- Favoritos operativos;
+- al cerrar el diálogo del reproductor, vídeo y audio se detienen completamente;
+- persistencia local conservada fuera del ejecutable.
 
-- Búsqueda mediante YouTube Data API: operativa.
-- Reproducción interna: corregida en 0.9.2 para el Error 153.
-- Apertura externa en YouTube: disponible como fallback.
+## Módulos consolidados
 
-### Favoritos
+### Pinturas
 
-Implementado en 0.9.1:
+Operativo y considerado cerrado para la 1.0 salvo errores importantes.
 
-- carpeta `Miniaturas`;
-- carpeta `Modelismo general`;
-- banners visuales propios;
-- clasificación automática al guardar;
-- reclasificación manual;
-- compatibilidad con favoritos existentes sin migración destructiva de la base de datos.
+### Materiales
 
-## Incidencia actual: YouTube Error 153
+Operativo y considerado cerrado para la 1.0 salvo errores importantes.
 
-En 0.9.1 se observó el Error 153 al reproducir vídeos dentro de la aplicación.
+### Compras
 
-Diagnóstico: el WebView de escritorio no estaba proporcionando a YouTube una identificación suficiente del cliente embebido.
+Operativo y considerado cerrado para la 1.0 salvo errores importantes.
 
-Corrección aplicada en 0.9.2:
+### Miniaturas
 
-- uso de `QWebEngineHttpRequest`;
-- encabezado `HTTP Referer` explícito;
-- parámetro `origin`;
-- parámetro `widget_referrer`;
-- mantenimiento del botón `Abrir en YouTube` para vídeos cuyo propietario prohíba embeds.
+Operativo para Star Wars: Legion y Warhammer Age of Sigmar, con estados Sin montar / Montado / Pintado / Terminado.
 
-## Verificación 0.9.2
+### Biblioteca y tutoriales
 
-GitHub Actions run funcional verificado: `32260154450`
+- Buscador especializado mediante YouTube Data API.
+- Contextualización de búsquedas hacia pintura/modelismo.
+- Filtro de idioma Todos / Español / Inglés.
+- Identificación visual ES / EN / ?.
+- Reproductor interno con Qt WebEngine sobre página loopback local.
+- Apertura externa en YouTube disponible.
+- Favoritos organizados en Miniaturas y Modelismo general.
+- Cambio manual de categoría.
 
-Resultado: **success**
+## Incidencias resueltas durante 0.9.x
 
-Comprobaciones superadas:
+- Error 153 de YouTube en WebView.
+- Bloqueo de Chromium con origen remoto artificial.
+- Sesgo incorrecto del filtro de idioma hacia español.
+- Audio del reproductor continuando en segundo plano tras cerrar la ventana.
 
-- reconstrucción 0.9.1 + overlay 0.9.2;
-- instalación de dependencias;
-- generación y verificación de catálogos y assets;
-- suite de tests;
-- test específico del Referer/identidad del reproductor;
-- UI smoke test;
-- PyInstaller;
-- publicación de artefacto.
+## Build final validado de la revisión interna
 
-Artefacto: `CirosPaint-Windows-0.9.2`
+GitHub Actions run: `32271003247`
 
-Ejecutable: `CirosPaint_0.9.2.exe`
+Artefacto: `CirosPaint-Windows-0.9.4.1`
 
-SHA256 del ejecutable:
+Ejecutable validado: `CirosPaint_0.9.4.1.exe`
 
-`2dee6d3f6728c59c0057092886e41b805010951832fe3af86fa312fd07c2f7a6`
+SHA256:
 
-## Próximo paso
+`484b409ffcddea3528e04d66a3bd8f4e3e365b70f4571a116d86507a57047d46`
 
-1. Ejecutar `CirosPaint_0.9.2.exe` en Windows.
-2. Abrir el mismo vídeo que produjo Error 153 en 0.9.1.
-3. Confirmar si la reproducción interna funciona.
-4. Si funciona, considerar 0.9.2 validada en entorno real.
-5. Si YouTube devuelve otro código, registrar el nuevo error por separado porque puede corresponder a restricciones de embed del propio vídeo.
+## Política de ramas y versiones
+
+Las revisiones `0.x.y` son iteraciones internas. Cuando se cierra una familia, su estado final se consolida en `main` bajo `0.x`.
+
+Con la familia 0.9 cerrada, `main` pasa a representar **Ciros Paint 0.9**. El siguiente bloque será **1.0**.
 
 ## Persistencia de datos
 
-Los datos locales permanecen fuera del ejecutable, bajo:
+Los datos locales permanecen bajo:
 
 `%LOCALAPPDATA%\CirosPaint\`
 
