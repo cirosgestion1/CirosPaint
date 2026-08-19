@@ -1,0 +1,5 @@
+Diagnostic-only marker.
+
+Purpose: trigger a fresh GitHub Actions rebuild of the exact Ciros Paint 0.10.2 application sources, without adding any 0.10.3 code or changing application behavior.
+
+This branch/PR is temporary and must not be merged.
