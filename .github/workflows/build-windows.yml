@@ -3,7 +3,7 @@ name: Build Windows EXE
 on:
   workflow_dispatch:
   push:
-    branches: [build/verify-0.10.2]
+    branches: [build/verify-0.10.3]
   pull_request:
     branches: [main]
 
@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Rebuild Ciros Paint 0.9 and apply 0.10.2
+      - name: Rebuild Ciros Paint 0.9 and apply 0.10.3
         shell: pwsh
         run: |
           function Rebuild-Zip($pattern, $expectedCount, $output, $expectedHash) {
@@ -98,7 +98,11 @@ jobs:
           Copy-Item 'patches/v0.10.2/overlay/tests/*' 'build_source/tests' -Recurse -Force
           python patches/v0.10.2/apply_v0102.py build_source
 
-          python -c "from pathlib import Path; ns={}; exec(Path('build_source/app/core/config.py').read_text(encoding='utf-8'), ns); assert ns['APP_VERSION']=='0.10.2'; s=Path('build_source/app/services/favorite_paint_analysis_service.py').read_text(encoding='utf-8'); assert 'MIN_VISIBLE_SIMILARITY_PERCENT = 85.0' in s and 'MIN_POSSIBLE_NAME_SIMILARITY' in s and 'delta_e_cie76' in s; d=Path('build_source/app/ui/dialogs/paint_analysis_dialog.py').read_text(encoding='utf-8'); assert 'No se han encontrado pinturas en la descripción del vídeo.' in d and 'Añadir a futuras compras' in d; p=Path('build_source/app/services/favorite_paint_purchase_service.py').read_text(encoding='utf-8'); assert 'ShoppingRepository' in p and 'set_future_quantity' in p and 'available_units=0' in p; f=Path('build_source/app/ui/pages/favorites_page.py').read_text(encoding='utf-8'); assert 'FavoritePaintPurchaseService' in f and 'on_add_to_future_purchases' in f; print('Ciros Paint 0.10.2 overlay verified')"
+          Copy-Item 'patches/v0.10.3/overlay/app/*' 'build_source/app' -Recurse -Force
+          Copy-Item 'patches/v0.10.3/overlay/tests/*' 'build_source/tests' -Recurse -Force
+          python patches/v0.10.3/apply_v0103.py build_source
+
+          python -c "from pathlib import Path; ns={}; exec(Path('build_source/app/core/config.py').read_text(encoding='utf-8'), ns); assert ns['APP_VERSION']=='0.10.3'; s=Path('build_source/app/services/assistant_paint_service.py').read_text(encoding='utf-8'); assert 'class AssistantPaintService' in s and 'find_paint_alternatives' in s and 'set_paint_quantity' in s; r=Path('build_source/app/services/assistant_tool_registry.py').read_text(encoding='utf-8'); assert 'search_paints' in r and 'add_paint_to_future_purchases' in r; scope=Path('build_source/app/services/assistant_scope.py').read_text(encoding='utf-8'); assert 'análisis de imágenes se limita exclusivamente a pinturas' in scope; session=Path('build_source/app/services/assistant_session_store.py').read_text(encoding='utf-8'); assert 'In-memory conversation storage only' in session; print('Ciros Paint 0.10.3 assistant foundation overlay verified')"
 
       - name: Set up paint catalog and dependencies
         shell: pwsh
@@ -140,23 +144,23 @@ jobs:
         run: |
           $env:QT_QPA_PLATFORM = 'offscreen'
           $env:PYTHONPATH = (Get-Location).Path
-          python -c "from types import SimpleNamespace; from PySide6.QtWidgets import QApplication,QLabel; app=QApplication([]); from app.core.config import APP_VERSION; assert APP_VERSION=='0.10.2'; from app.services.favorite_category_service import FavoriteCategoryService; from app.services.favorite_paint_analysis_service import PaintAnalysisResult; from app.ui.pages.favorites_page import FavoriteCard; from app.ui.dialogs.paint_analysis_dialog import PaintAnalysisDialog; fav=SimpleNamespace(video_id='dQw4w9WgXcQ',title='Test',channel_title='Channel',description='',thumbnail_url='',video_url='https://www.youtube.com/watch?v=dQw4w9WgXcQ',duration_text='1:00',published_at='2026-01-01T00:00:00Z',view_count=1,like_count=1); mini=FavoriteCard(fav,FavoriteCategoryService.MINIATURES,lambda:None,lambda:None); general=FavoriteCard(fav,FavoriteCategoryService.GENERAL,lambda:None,lambda:None); assert mini.analyze_paints_button is not None and mini.view_paints_button is not None and mini.view_paints_button.isHidden(); assert general.analyze_paints_button is None and general.view_paints_button is None; r=PaintAnalysisResult((),(),(),()); dlg=PaintAnalysisDialog('Test',r); text=' | '.join(x.text() for x in dlg.findChildren(QLabel)); assert 'No se han encontrado pinturas en la descripción del vídeo.' in text; mini.close(); general.close(); dlg.close(); print('Ciros Paint 0.10.2 paint analysis UI smoke test OK')"
+          python -c "from types import SimpleNamespace; from PySide6.QtWidgets import QApplication,QLabel; app=QApplication([]); from app.core.config import APP_VERSION; assert APP_VERSION=='0.10.3'; from app.services.favorite_category_service import FavoriteCategoryService; from app.services.favorite_paint_analysis_service import PaintAnalysisResult; from app.ui.pages.favorites_page import FavoriteCard; from app.ui.dialogs.paint_analysis_dialog import PaintAnalysisDialog; fav=SimpleNamespace(video_id='dQw4w9WgXcQ',title='Test',channel_title='Channel',description='',thumbnail_url='',video_url='https://www.youtube.com/watch?v=dQw4w9WgXcQ',duration_text='1:00',published_at='2026-01-01T00:00:00Z',view_count=1,like_count=1); mini=FavoriteCard(fav,FavoriteCategoryService.MINIATURES,lambda:None,lambda:None); general=FavoriteCard(fav,FavoriteCategoryService.GENERAL,lambda:None,lambda:None); assert mini.analyze_paints_button is not None and mini.view_paints_button is not None and mini.view_paints_button.isHidden(); assert general.analyze_paints_button is None and general.view_paints_button is None; r=PaintAnalysisResult((),(),(),()); dlg=PaintAnalysisDialog('Test',r); text=' | '.join(x.text() for x in dlg.findChildren(QLabel)); assert 'No se han encontrado pinturas en la descripción del vídeo.' in text; mini.close(); general.close(); dlg.close(); print('Ciros Paint 0.10.3 paint analysis UI smoke test OK')"
 
-      - name: Build CirosPaint_0.10.2.exe
+      - name: Build CirosPaint_0.10.3.exe
         shell: pwsh
         working-directory: build_source
         run: |
           python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint --add-data "app/data/paint_catalog.json;app/data" --add-data "app/data/miniature_catalog.json;app/data" --add-data "app/assets/brands;app/assets/brands" --add-data "app/assets/miniatures;app/assets/miniatures" --add-data "app/assets/favorites;app/assets/favorites" --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "MINIATURE_ASSET_SOURCES.md;." main.py
           if (!(Test-Path 'dist/CirosPaint.exe')) { throw 'CirosPaint.exe was not generated' }
-          Move-Item 'dist/CirosPaint.exe' 'dist/CirosPaint_0.10.2.exe'
-          if (!(Test-Path 'dist/CirosPaint_0.10.2.exe')) { throw 'CirosPaint_0.10.2.exe was not generated' }
-          Get-Item dist/CirosPaint_0.10.2.exe | Format-List Name,Length,FullName
-          $exeHash = (Get-FileHash 'dist/CirosPaint_0.10.2.exe' -Algorithm SHA256).Hash.ToLower()
-          Write-Host "CirosPaint_0.10.2.exe SHA256: $exeHash"
+          Move-Item 'dist/CirosPaint.exe' 'dist/CirosPaint_0.10.3.exe'
+          if (!(Test-Path 'dist/CirosPaint_0.10.3.exe')) { throw 'CirosPaint_0.10.3.exe was not generated' }
+          Get-Item dist/CirosPaint_0.10.3.exe | Format-List Name,Length,FullName
+          $exeHash = (Get-FileHash 'dist/CirosPaint_0.10.3.exe' -Algorithm SHA256).Hash.ToLower()
+          Write-Host "CirosPaint_0.10.3.exe SHA256: $exeHash"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CirosPaint-Windows-0.10.2
-          path: build_source/dist/CirosPaint_0.10.2.exe
+          name: CirosPaint-Windows-0.10.3
+          path: build_source/dist/CirosPaint_0.10.3.exe
           if-no-files-found: error
           retention-days: 30
