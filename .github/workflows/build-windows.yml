@@ -50,7 +50,7 @@ jobs:
           git apply --directory=build_source patches/v0.8.2/CirosPaint_0.8.2.patch
           if ($LASTEXITCODE -ne 0) { throw 'Could not apply Ciros Paint 0.8.2 patch' }
 
-          Rebuild-Zip 'patches/v0.8.3/chunks/part*.txt' 3 'patches/CirosPaint_0.8.3_overlay.zip' '185e2b09264544498de8da2d73e5f2c148b0a57b3fec6437bd7c22676b5b7dd9'
+          Rebuild-Zip 'patches/v0.8.3/chunks/part*.txt' 12 'patches/CirosPaint_0.8.3_overlay.zip' '185e2b09264544498de8da2d73e5f2c148b0a57b3fec6437bd7c22676b5b7dd9'
           tar -xf patches/CirosPaint_0.8.3_overlay.zip -C build_source
           cd build_source
           python tools/apply_v083_metadata.py
