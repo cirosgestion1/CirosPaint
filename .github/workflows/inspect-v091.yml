@@ -3,8 +3,9 @@ name: Inspect v0.9.1 source
 on:
   push:
     branches: [build/verify-0.9.1]
-  pull_request:
-    branches: [main]
+
+permissions:
+  contents: write
 
 jobs:
   inspect:
@@ -54,18 +55,20 @@ jobs:
           Rebuild-Zip 'patches/v0.9.0/code_overlay/part*.txt' 5 'patches/CirosPaint_0.9.0_code_overlay.zip' '7dd1878ef496db816313474e55312da775cd505a4da571c68c6a5767d62272f3'
           tar -xf patches/CirosPaint_0.9.0_code_overlay.zip -C build_source
 
-      - name: Print relevant source
+      - name: Export relevant source to branch
         shell: pwsh
         run: |
-          foreach ($path in @(
-            'build_source/app/ui/pages/favorites_page.py',
-            'build_source/app/core/settings_store.py',
-            'build_source/app/repositories/library_repository.py',
-            'build_source/app/ui/pages/tutorial_search_page.py',
-            'build_source/app/ui/pages/miniatures_page.py',
-            'build_source/app/core/config.py'
-          )) {
-            Write-Host "===== FILE: $path ====="
-            Get-Content $path -Raw
-            Write-Host "===== END FILE: $path ====="
+          New-Item -ItemType Directory -Force inspection | Out-Null
+          Copy-Item build_source/app/ui/pages/favorites_page.py inspection/favorites_page.py
+          Copy-Item build_source/app/core/settings_store.py inspection/settings_store.py
+          Copy-Item build_source/app/repositories/library_repository.py inspection/library_repository.py
+          Copy-Item build_source/app/ui/pages/tutorial_search_page.py inspection/tutorial_search_page.py
+          Copy-Item build_source/app/ui/pages/miniatures_page.py inspection/miniatures_page.py
+          Copy-Item build_source/app/core/config.py inspection/config.py
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add inspection
+          if (!(git diff --cached --quiet)) {
+            git commit -m "Export reconstructed 0.9.0 source for 0.9.1"
+            git push
           }
