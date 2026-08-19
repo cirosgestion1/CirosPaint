@@ -6,7 +6,7 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QLabel
 
 from app.services.favorite_category_service import FavoriteCategoryService
 from app.services.favorite_paint_analysis_service import PaintAnalysisResult
@@ -52,7 +52,7 @@ class FavoritePaintAnalysisUiTests(unittest.TestCase):
         result = PaintAnalysisResult(author_lines=(), detected=(), matches=(), missing=())
         dialog = PaintAnalysisDialog("Test", result)
         try:
-            texts = [label.text() for label in dialog.findChildren(type(dialog.findChildren.__self__) if False else __import__('PySide6.QtWidgets', fromlist=['QLabel']).QLabel)]
+            texts = [label.text() for label in dialog.findChildren(QLabel)]
             joined = " | ".join(texts)
             self.assertIn("1. Lo escrito por el autor", joined)
             self.assertIn("2. Coincidencias con tu inventario", joined)
