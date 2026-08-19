@@ -57,7 +57,7 @@ Corrección aplicada en 0.9.2:
 
 ## Verificación 0.9.2
 
-GitHub Actions run: `32260154450`
+GitHub Actions run funcional verificado: `32260154450`
 
 Resultado: **success**
 
