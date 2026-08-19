@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Rebuild Ciros Paint 0.8.2 source
+      - name: Rebuild Ciros Paint 0.8.3 source
         shell: pwsh
         run: |
           function Rebuild-Zip($pattern, $expectedCount, $output, $expectedHash) {
@@ -49,7 +49,12 @@ jobs:
           python -c "from pathlib import Path; p=Path(r'patches/v0.8.2/CirosPaint_0.8.2.patch'); p.write_bytes(p.read_text(encoding='utf-8').encode('utf-8'))"
           git apply --directory=build_source patches/v0.8.2/CirosPaint_0.8.2.patch
           if ($LASTEXITCODE -ne 0) { throw 'Could not apply Ciros Paint 0.8.2 patch' }
-          Write-Host 'Applied Ciros Paint 0.8.2 text patch'
+
+          Rebuild-Zip 'patches/v0.8.3/chunks/part*.txt' 3 'patches/CirosPaint_0.8.3_overlay.zip' '185e2b09264544498de8da2d73e5f2c148b0a57b3fec6437bd7c22676b5b7dd9'
+          tar -xf patches/CirosPaint_0.8.3_overlay.zip -C build_source
+          cd build_source
+          python tools/apply_v083_metadata.py
+          Write-Host 'Applied Ciros Paint 0.8.3 overlay'
 
       - name: Set up paint catalog and dependencies
         shell: pwsh
@@ -74,7 +79,7 @@ jobs:
           $env:PYTHONPATH = (Get-Location).Path
           python tools/build_paint_catalog.py "$env:GITHUB_WORKSPACE\catalog_source" app/data/paint_catalog.json
           python tools/download_miniature_assets.py
-          python -c "import json,pathlib; p=json.loads(pathlib.Path('app/data/paint_catalog.json').read_text(encoding='utf-8')); m=json.loads(pathlib.Path('app/data/miniature_catalog.json').read_text(encoding='utf-8')); assert len(p)>500; assert m.get('catalog_revision')=='0.8.1'; assert sum(len(f['units']) for g in m['games'] for f in g['factions'])>500; print('Catalogs OK')"
+          python -c "import json,pathlib; p=json.loads(pathlib.Path('app/data/paint_catalog.json').read_text(encoding='utf-8')); m=json.loads(pathlib.Path('app/data/miniature_catalog.json').read_text(encoding='utf-8')); assert len(p)>500; assert all(isinstance(x.get('rgb'),list) and len(x['rgb'])==3 and isinstance(x.get('lab'),list) and len(x['lab'])==3 for x in p); assert m.get('catalog_revision')=='0.8.1'; assert sum(len(f['units']) for g in m['games'] for f in g['factions'])>500; aos=next(g for g in m['games'] if g['name']=='Age of Sigmar'); assert all(f.get('image_asset') and f.get('image_url') for f in aos['factions']); assert len({f['image_asset'] for f in aos['factions']})==len(aos['factions']); print('Catalogs and hidden CIELAB metadata OK')"
           if (!(Test-Path 'app/assets/miniatures/games/star_wars_legion.webp')) { throw 'Star Wars Legion banner missing' }
           if (!(Test-Path 'app/assets/miniatures/games/age_of_sigmar_battle.jpg')) { throw 'Age of Sigmar battle banner missing' }
           foreach ($icon in @('sw_empire.svg','sw_rebels.svg','sw_republic.svg','sw_separatists.svg','sw_mercenaries.svg','sw_mandalorians.svg')) {
@@ -97,7 +102,7 @@ jobs:
         run: |
           $env:QT_QPA_PLATFORM = 'offscreen'
           $env:PYTHONPATH = (Get-Location).Path
-          python -c "from types import SimpleNamespace; from PySide6.QtCore import Qt; from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.db.database import init_database; init_database(); from app.ui.pages.miniatures_page import MiniaturesPage,UnitCard; from app.services.miniature_catalog_service import MiniatureCatalogService; p=MiniaturesPage(); assert [b.game['name'] for b in p.game_banners]==['Star Wars: Legion','Age of Sigmar']; fac=MiniatureCatalogService.faction('Star Wars: Legion','Imperio Galáctico'); unit=MiniatureCatalogService.unit('Star Wars: Legion','Imperio Galáctico','Stormtroopers'); entry=SimpleNamespace(id=1,unit_name='Stormtroopers',total_count=6); card=UnitCard(entry,unit,fac); assert card.art.has_unit_art; assert card.faction_icon_asset==fac['icon_asset']; blank=UnitCard(entry,{'primary_role':'Tropas','image_asset':None},{'image_asset':fac['image_asset'],'icon_asset':fac['icon_asset']}); assert not blank.art.has_unit_art; assert blank.unit_image_asset is None; grid=p._cards_grid([(entry,unit)],fac); assert bool(grid.alignment() & Qt.AlignLeft); assert bool(grid.itemAtPosition(0,0).alignment() & Qt.AlignLeft); assert p.delete_faction_btn.objectName()=='DangerCompactButton'; assert p.delete_faction_btn.maximumWidth()==126; from app.core.config import APP_VERSION; assert APP_VERSION=='0.8.2'; print('Ciros Paint 0.8.2 UI smoke test OK')"
+          python -c "from types import SimpleNamespace; from PySide6.QtCore import Qt; from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.db.database import init_database; init_database(); from app.ui.pages.miniatures_page import MiniaturesPage,UnitCard; from app.services.miniature_catalog_service import MiniatureCatalogService; p=MiniaturesPage(); assert [b.game['name'] for b in p.game_banners]==['Star Wars: Legion','Age of Sigmar']; assert p.state_buttons[None].isChecked(); assert [p.state_buttons[s].text() for s in (None,'Sin montar','Montado','Pintado','Terminado')]==['Todo','Sin montar','Montado','Pintado','Terminado']; p._toggle_state('Montado'); assert p.active_state_filter=='Montado' and p.state_buttons['Montado'].isChecked(); p._toggle_state('Montado'); assert p.active_state_filter is None and p.state_buttons[None].isChecked(); fac=MiniatureCatalogService.faction('Star Wars: Legion','Imperio Galáctico'); unit=MiniatureCatalogService.unit('Star Wars: Legion','Imperio Galáctico','Stormtroopers'); entry=SimpleNamespace(id=1,unit_name='Stormtroopers',total_count=24,unassembled_count=4,assembled_count=7,painted_count=8,finished_count=5); card=UnitCard(entry,unit,fac,'Pintado'); assert card.qty.text()=='8'; assert '#3B82F6' in card.qty.styleSheet(); assert card.art.has_unit_art; assert card.faction_icon_asset==fac['icon_asset']; blank=UnitCard(entry,{'primary_role':'Tropas','image_asset':None},{'image_asset':fac['image_asset'],'icon_asset':fac['icon_asset']}); assert not blank.art.has_unit_art and not blank.art.using_faction_fallback; aos=MiniatureCatalogService.faction('Age of Sigmar','Seraphon'); aos_unit=MiniatureCatalogService.unit('Age of Sigmar','Seraphon','Saurus Warriors'); aos_entry=SimpleNamespace(id=2,unit_name='Saurus Warriors',total_count=10,unassembled_count=2,assembled_count=3,painted_count=4,finished_count=1); aos_card=UnitCard(aos_entry,aos_unit,aos); assert aos_card.art.faction_fallback==aos['image_asset'] and aos_card.art.using_faction_fallback; grid=p._cards_grid([(entry,unit)],fac); assert bool(grid.alignment() & Qt.AlignLeft); assert bool(grid.itemAtPosition(0,0).alignment() & Qt.AlignLeft); assert p.delete_faction_btn.objectName()=='DangerCompactButton'; from app.core.config import APP_VERSION; assert APP_VERSION=='0.8.3'; print('Ciros Paint 0.8.3 UI smoke test OK')"
 
       - name: Build CirosPaint.exe
         shell: pwsh
@@ -111,7 +116,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CirosPaint-Windows-0.8.2
+          name: CirosPaint-Windows-0.8.3
           path: build_source/dist/CirosPaint.exe
           if-no-files-found: error
           retention-days: 30
