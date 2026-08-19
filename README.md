@@ -46,7 +46,7 @@ La validación definitiva de reproducción real de YouTube queda pendiente de pr
 
 ## Build de Windows verificado
 
-Workflow run: `32260154450`
+Workflow run funcional verificado: `32260154450`
 
 Artefacto: `CirosPaint-Windows-0.9.2`
 
