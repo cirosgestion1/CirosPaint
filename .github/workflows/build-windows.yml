@@ -3,7 +3,7 @@ name: Build Windows EXE
 on:
   workflow_dispatch:
   push:
-    branches: [build/verify-0.10.4]
+    branches: [build/verify-0.10.5]
   pull_request:
     branches: [main]
 
@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Rebuild Ciros Paint 0.9 and apply 0.10.4
+      - name: Rebuild Ciros Paint 0.9 and apply 0.10.5
         shell: pwsh
         run: |
           function Rebuild-Zip($pattern, $expectedCount, $output, $expectedHash) {
@@ -105,7 +105,11 @@ jobs:
           Copy-Item 'patches/v0.10.4/overlay/tests/*' 'build_source/tests' -Recurse -Force
           python patches/v0.10.4/apply_v0104.py build_source
 
-          python -c "from pathlib import Path; ns={}; exec(Path('build_source/app/core/config.py').read_text(encoding='utf-8'), ns); assert ns['APP_VERSION']=='0.10.4'; p=Path('build_source/app/ui/pages/assistant_page.py').read_text(encoding='utf-8'); assert 'Ciros Assistant' in p and 'Configurar Gemini' in p and 'Adjuntar imagen' in p; s=Path('build_source/app/services/assistant_settings_store.py').read_text(encoding='utf-8'); assert 'assistant_settings.json' in s and 'gemini_api_key' in s; print('Ciros Paint 0.10.4 visual assistant overlay verified')"
+          Copy-Item 'patches/v0.10.5/overlay/app/*' 'build_source/app' -Recurse -Force
+          Copy-Item 'patches/v0.10.5/overlay/tests/*' 'build_source/tests' -Recurse -Force
+          python patches/v0.10.5/apply_v0105.py build_source
+
+          python -c "from pathlib import Path; ns={}; exec(Path('build_source/app/core/config.py').read_text(encoding='utf-8'), ns); assert ns['APP_VERSION']=='0.10.5'; a=Path('build_source/app/ui/pages/assistant_page.py').read_text(encoding='utf-8'); assert 'info_button' in a and 'send_button' in a and 'Imágenes: solo pinturas de modelismo' not in a and 'Configurar Gemini' not in a; s=Path('build_source/app/ui/pages/settings_page.py').read_text(encoding='utf-8'); assert 'Base de datos local' in s and 'Abrir ubicación' in s and 'YouTube Data API' in s and 'Gemini API' in s and 'Comprobar conexión' in s; d=Path('build_source/app/ui/dialogs/assistant_info_dialog.py').read_text(encoding='utf-8'); assert '¿Qué puede hacer?' in d and 'Consultar tu inventario de pinturas' in d and 'Cómo utiliza tus datos' in d; print('Ciros Paint 0.10.5 assistant/settings overlay verified')"
 
       - name: Set up paint catalog and dependencies
         shell: pwsh
@@ -142,29 +146,29 @@ jobs:
           $env:PYTHONPATH = (Get-Location).Path
           python -m unittest discover -s tests -v
 
-      - name: Assistant UI smoke test
+      - name: Assistant and settings UI smoke test
         shell: pwsh
         working-directory: build_source
         run: |
           $env:QT_QPA_PLATFORM = 'offscreen'
           $env:PYTHONPATH = (Get-Location).Path
-          python -c "from PySide6.QtWidgets import QApplication,QLineEdit; app=QApplication([]); from app.core.config import APP_VERSION; assert APP_VERSION=='0.10.4'; from app.ui.pages.assistant_page import AssistantPage; p=AssistantPage(); assert p.conversation_list.count()==1; assert p.api_key_input.echoMode()==QLineEdit.Password; assert 'Gemini' in p.connection_badge.text(); p.input.setPlainText('¿Qué pinturas grises tengo?'); p.send_message(); c=p.session_store.get(p.current_conversation_id); assert [m.role for m in c.messages]==['user','assistant']; p.close(); print('Ciros Paint 0.10.4 assistant UI smoke test OK')"
+          python -c "from PySide6.QtCore import Qt; from PySide6.QtTest import QTest; from PySide6.QtWidgets import QApplication,QLineEdit; app=QApplication([]); from app.core.config import APP_VERSION; assert APP_VERSION=='0.10.5'; from app.ui.pages.assistant_page import AssistantPage; p=AssistantPage(); app.processEvents(); p.input.setPlainText('¿Qué pinturas grises tengo?'); QTest.mouseClick(p.send_button,Qt.LeftButton); app.processEvents(); c=p.session_store.get(p.current_conversation_id); assert [m.role for m in c.messages]==['user','assistant']; assert not hasattr(p,'settings_button'); from app.ui.pages.settings_page import SettingsPage; s=SettingsPage(); assert s.gemini_api_key_input.echoMode()==QLineEdit.Password and s.open_data_button is not None; p.close(); s.close(); print('Ciros Paint 0.10.5 assistant/settings UI smoke test OK')"
 
-      - name: Build CirosPaint_0.10.4.exe
+      - name: Build CirosPaint_0.10.5.exe
         shell: pwsh
         working-directory: build_source
         run: |
           python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint --add-data "app/data/paint_catalog.json;app/data" --add-data "app/data/miniature_catalog.json;app/data" --add-data "app/assets/brands;app/assets/brands" --add-data "app/assets/miniatures;app/assets/miniatures" --add-data "app/assets/favorites;app/assets/favorites" --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "MINIATURE_ASSET_SOURCES.md;." main.py
           if (!(Test-Path 'dist/CirosPaint.exe')) { throw 'CirosPaint.exe was not generated' }
-          Move-Item 'dist/CirosPaint.exe' 'dist/CirosPaint_0.10.4.exe'
-          if (!(Test-Path 'dist/CirosPaint_0.10.4.exe')) { throw 'CirosPaint_0.10.4.exe was not generated' }
-          Get-Item dist/CirosPaint_0.10.4.exe | Format-List Name,Length,FullName
-          $exeHash = (Get-FileHash 'dist/CirosPaint_0.10.4.exe' -Algorithm SHA256).Hash.ToLower()
-          Write-Host "CirosPaint_0.10.4.exe SHA256: $exeHash"
+          Move-Item 'dist/CirosPaint.exe' 'dist/CirosPaint_0.10.5.exe'
+          if (!(Test-Path 'dist/CirosPaint_0.10.5.exe')) { throw 'CirosPaint_0.10.5.exe was not generated' }
+          Get-Item dist/CirosPaint_0.10.5.exe | Format-List Name,Length,FullName
+          $exeHash = (Get-FileHash 'dist/CirosPaint_0.10.5.exe' -Algorithm SHA256).Hash.ToLower()
+          Write-Host "CirosPaint_0.10.5.exe SHA256: $exeHash"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CirosPaint-Windows-0.10.4
-          path: build_source/dist/CirosPaint_0.10.4.exe
+          name: CirosPaint-Windows-0.10.5
+          path: build_source/dist/CirosPaint_0.10.5.exe
           if-no-files-found: error
           retention-days: 30
