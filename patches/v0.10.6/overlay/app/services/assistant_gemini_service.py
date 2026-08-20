@@ -246,7 +246,7 @@ class GeminiAssistantService:
     @staticmethod
     def _convert_image_for_inline(path: Path) -> tuple[bytes, str]:
         try:
-            from PySide6.QtCore import QBuffer, QIODevice
+            from PySide6.QtCore import QBuffer, QIODevice, Qt
             from PySide6.QtGui import QImage
         except ImportError as exc:
             raise GeminiAssistantError("image_format", "No se ha podido preparar la imagen para Gemini.") from exc
@@ -255,7 +255,7 @@ class GeminiAssistantService:
         if image.isNull():
             raise GeminiAssistantError("image_format", "El formato de la imagen adjunta no se ha podido leer.")
         if max(image.width(), image.height()) > 2048:
-            image = image.scaled(2048, 2048, aspectMode=1, mode=1)
+            image = image.scaled(2048, 2048, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         buffer = QBuffer()
         if not buffer.open(QIODevice.WriteOnly):
             raise GeminiAssistantError("image_format", "No se ha podido preparar la imagen para Gemini.")
