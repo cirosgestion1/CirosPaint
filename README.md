@@ -4,18 +4,18 @@ Aplicación de escritorio **local-first para Windows** destinada a gestionar pin
 
 ## Estado actual
 
-**Última versión validada: Ciros Paint 0.10.6** — 20/08/2026.
+**Última versión validada: Ciros Paint 0.10.7** — 20/08/2026.
 
-La familia 0.10 incorpora análisis de pinturas en favoritos y, desde 0.10.6, la primera versión funcional de **Ciros Assistant** con Gemini.
+La familia 0.10 incorpora análisis de pinturas en favoritos y Ciros Assistant. Desde 0.10.7 el asistente utiliza una arquitectura **local-first**: las consultas y operaciones deterministas se intentan resolver dentro de Ciros Paint sin consumir Gemini, y el proveedor se utiliza como fallback cuando hace falta interpretación o generación.
 
-Validación automática de 0.10.6:
+Validación automática de 0.10.7:
 
-- GitHub Actions: **SUCCESS**.
-- 113 tests: **OK**.
+- GitHub Actions run `32397932655`: **SUCCESS**.
+- **115 tests: OK**.
 - Smoke test funcional del asistente: **OK**.
 - Python 3.12.10.
 - PyInstaller 6.22.2.
-- `google-genai` 2.19.0 en la build validada.
+- `google-genai` 2.19.0.
 - Catálogo generado: **2511 pinturas** con metadatos Lab.
 
 ## Funcionalidades principales
@@ -43,7 +43,8 @@ Validación automática de 0.10.6:
 - Colección de **Star Wars: Legion** y **Warhammer Age of Sigmar**.
 - Estados: Sin montar, Montado, Pintado y Terminado.
 - Catálogo local de unidades y facciones.
-- Imágenes oficiales/locales incluidas en el paquete cuando están disponibles.
+- Imágenes oficiales/locales incluidas cuando están disponibles.
+- Ciros Assistant 0.10.7 puede consultar y actualizar operaciones compatibles de la colección mediante la capa local.
 
 ### Buscador de tutoriales
 
@@ -68,25 +69,45 @@ Validación automática de 0.10.6:
 
 Ciros Assistant es un asistente especializado en pintura de miniaturas y modelismo.
 
-Desde **0.10.6** puede conectarse realmente a Gemini y trabajar con la base de datos de Ciros Paint mediante herramientas controladas por la aplicación.
+### Local-first en 0.10.7
 
-Capacidades iniciales:
+Antes de llamar a Gemini, Ciros Paint intenta resolver localmente las operaciones compatibles. Esto permite responder con **0 tokens Gemini** en consultas deterministas y mantiene la base de datos local como fuente de verdad.
 
-1. Buscar pinturas del inventario.
-2. Consultar stock y cantidades.
-3. Buscar alternativas de color que el usuario ya posee.
-4. Añadir unidades compradas al inventario.
-5. Establecer la cantidad total de una pintura.
-6. Añadir pinturas a Futuras compras.
-7. Consultar Futuras compras.
-8. Resolver preguntas generales sobre pintura de miniaturas, aerografía, técnicas, desgaste, dioramas y escenografía.
-9. Recibir imágenes relacionadas con el hobby y utilizarlas como contexto visual.
+Entre las operaciones cubiertas localmente se incluyen:
 
-### Arquitectura y seguridad del asistente
+1. Buscar pinturas y sugerir coincidencias/autocompletado.
+2. Consultar stock, pinturas agotadas o casi agotadas.
+3. Consultar y gestionar Futuras compras en casos compatibles.
+4. Consultar miniaturas de la colección.
+5. Consultar o modificar estados de miniaturas cuando la identidad es segura.
 
-Gemini **no recibe acceso directo a SQLite**. El modelo puede solicitar una función; Ciros Paint valida y ejecuta la operación localmente y devuelve únicamente el resultado necesario.
+Cuando la consulta requiere razonamiento o lenguaje abierto, Gemini se utiliza como fallback.
 
-La base de datos local es siempre la fuente de verdad sobre inventario, cantidades y compras.
+### Gemini
+
+- Modelo configurado: `gemini-3.7-flash`.
+- Interactions API.
+- `store=False`.
+- `thinking_level="low"` para reducir consumo innecesario.
+- Historial temporal limitado a los turnos recientes necesarios.
+- Consultas generales sin tools cuando no hacen falta.
+- Function calling restringido a las siete herramientas controladas de pinturas cuando corresponde.
+- Métricas de tokens mostradas en la UI cuando el proveedor las devuelve.
+- Tratamiento específico de autenticación, red, timeout, 429 y 503.
+
+### Interfaz del asistente
+
+- Conversaciones temporales independientes.
+- Autocompletado local de pinturas.
+- Indicador `Consulta local · 0 tokens Gemini`.
+- Markdown.
+- Respuestas largas sin truncado.
+- Imágenes adjuntas con presentación visual mejorada.
+- Ejecución asíncrona para no bloquear PySide6.
+
+### Arquitectura y seguridad
+
+Gemini **no recibe acceso directo a SQLite**. Ciros Paint controla las consultas/escrituras locales y valida cualquier operación antes de modificar información.
 
 Las conversaciones:
 
@@ -100,7 +121,7 @@ Las operaciones ambiguas deben solicitar aclaración antes de modificar datos.
 
 ## Configuración de APIs
 
-En **Ajustes** se encuentran las dos integraciones externas:
+En **Ajustes** se encuentran las integraciones externas:
 
 ### YouTube Data API
 
@@ -108,13 +129,11 @@ Necesaria para el Buscador de tutoriales.
 
 ### Gemini API
 
-Necesaria para Ciros Assistant.
+Necesaria únicamente para las funciones de Ciros Assistant que realmente requieren Gemini. Las consultas locales compatibles pueden funcionar sin API Key.
 
 La API Key se introduce manualmente, se muestra oculta por defecto y se guarda únicamente en los datos locales del ordenador. No se incluye en el ejecutable ni se publica en GitHub.
 
 El botón **Comprobar conexión** realiza una comprobación real contra Gemini.
-
-Ciros Paint trata de forma específica errores de autenticación, red, timeout, indisponibilidad y límites de cuota (`429`).
 
 ## Datos locales
 
@@ -138,36 +157,36 @@ Actualizar el ejecutable no debe sustituir ni borrar el inventario local.
 
 La build validada se genera mediante GitHub Actions sobre Windows Server 2025 con Python 3.12 y PyInstaller en modo `--windowed --onefile`.
 
-Build 0.10.6:
+Build 0.10.7:
 
-- Workflow run: `32382923636` (#205).
-- Artefacto: `CirosPaint-Windows-0.10.6`.
-- Ejecutable: `CirosPaint_0.10.6.exe`.
-- Tamaño del EXE: `244346433` bytes.
-- SHA-256 EXE: `58c3ae2560c9afeda18dc4a9c49466ebfe8c9abf14f80b4f81d75d5019bf1aa0`.
-- Artifact ID: `9411981601`.
-- SHA-256 del ZIP de GitHub Actions: `24f5b5a2ed2effc2bfb22a192681aac8f9afc9e3f489f3688af2c4e3cb7db4ce`.
+- Workflow run: `32397932655` (#230).
+- Artefacto: `CirosPaint-Windows-0.10.7`.
+- Artifact ID: `9417510361`.
+- Ejecutable: `CirosPaint_0.10.7.exe`.
+- Tamaño EXE: `244382691` bytes.
+- SHA-256 EXE: `ba333211e9684efd4ffb0a03175aeeb55afd152d32e7e4aef1cbae7d98a2f50e`.
+- Tamaño ZIP: `242991446` bytes.
+- SHA-256 ZIP: `90e4e9b2d4b66f4e4debd69bc162d79f3e1593fb48287080ceae9e4d8ecf9a1f`.
+- SHA-256 overlay 0.10.7: `062ae2b06e881f1d243b3ae7a4cbe150d889b46fb938f98735bd45c2def89f1b`.
 
 ## Estructura de desarrollo
 
 El repositorio conserva una cadena histórica de fuente base + overlays/parches. La build reconstruye de forma determinista las versiones anteriores y aplica los overlays hasta llegar a la versión actual.
 
-Para 0.10.6 la secuencia relevante termina en:
+Para 0.10.7 la secuencia relevante termina en:
 
 ```text
-0.9 -> 0.10.1 -> 0.10.2 -> 0.10.3 -> 0.10.4 -> 0.10.5 -> 0.10.6
+0.9 -> 0.10.1 -> 0.10.2 -> 0.10.3 -> 0.10.4 -> 0.10.5 -> 0.10.6 -> 0.10.7
 ```
-
-Esta arquitectura permite conservar el historial de evolución y reproducir la build final desde GitHub Actions.
 
 ## Documentación
 
 - `PROJECT_STATUS.md`: estado técnico actual del proyecto.
 - `CHANGELOG.md`: resumen de versiones y cambios.
 - `ASSISTANT_ARCHITECTURE.md`: arquitectura y reglas de Ciros Assistant.
-- `MANUAL_TESTS_0.10.6.md`: batería de validación manual de la primera integración funcional con Gemini.
-- `BUILD_VERIFY_0.10.6.md`: datos exactos de la build validada.
+- `MANUAL_TESTS_0.10.7.md`: batería de validación manual de 0.10.7.
+- `BUILD_VERIFY_0.10.7.md`: datos exactos de la build validada.
 
 ## Nota sobre servicios externos
 
-Ciros Paint funciona localmente para inventarios y datos propios, pero YouTube y Gemini requieren conexión a Internet y sus respectivas API Keys. Sus cuotas, disponibilidad y políticas dependen de los proveedores externos.
+Ciros Paint funciona localmente para inventarios y datos propios. YouTube y las capacidades de Ciros Assistant que usan Gemini requieren conexión a Internet y sus respectivas API Keys. Sus cuotas, disponibilidad y políticas dependen de los proveedores externos.
