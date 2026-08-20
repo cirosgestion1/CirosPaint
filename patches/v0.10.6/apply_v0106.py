@@ -25,6 +25,21 @@ def main() -> None:
         requirements += "google-genai>=1,<2\n"
         requirements_path.write_text(requirements, encoding="utf-8")
 
+    notices_path = root / "THIRD_PARTY_NOTICES.txt"
+    if notices_path.is_file():
+        notices = notices_path.read_text(encoding="utf-8")
+        marker = "Google Gen AI Python SDK"
+        if marker not in notices:
+            if notices and not notices.endswith("\n"):
+                notices += "\n"
+            notices += (
+                "\nGoogle Gen AI Python SDK (google-genai)\n"
+                "Copyright Google LLC\n"
+                "Licensed under the Apache License, Version 2.0.\n"
+                "Source: https://github.com/googleapis/python-genai\n"
+            )
+            notices_path.write_text(notices, encoding="utf-8")
+
     obsolete_test = root / "tests" / "test_assistant_ui_v0105.py"
     if obsolete_test.exists():
         obsolete_test.unlink()
