@@ -4,6 +4,34 @@ import sys
 from pathlib import Path
 
 
+def _patch_gemini_runtime(root: Path) -> None:
+    path = root / "app" / "services" / "assistant_gemini_service.py"
+    text = path.read_text(encoding="utf-8")
+
+    status_check = '''            if getattr(interaction, "status", "completed") not in {None, "completed"}:
+                raise GeminiAssistantError("unexpected_status", "Gemini respondió, pero la comprobación no terminó correctamente.")
+'''
+    text = text.replace(status_check, "")
+
+    text = text.replace(
+        'if mime_type not in accepted or len(raw) > 15 * 1024 * 1024:',
+        'if mime_type not in accepted or len(raw) > 14 * 1024 * 1024:',
+    )
+    text = text.replace(
+        'if len(raw) > 19 * 1024 * 1024:',
+        'if len(raw) > 14 * 1024 * 1024:',
+    )
+    text = text.replace(
+        'return dumper(mode="json", exclude_none=True)',
+        'return dumper(mode="json")',
+    )
+    text = text.replace(
+        'return dumper(exclude_none=True)',
+        'return dumper()',
+    )
+    path.write_text(text, encoding="utf-8")
+
+
 def main() -> None:
     if len(sys.argv) != 2:
         raise SystemExit("Usage: apply_v0106.py <build_source>")
@@ -22,7 +50,7 @@ def main() -> None:
     if "google-genai" not in requirements.casefold():
         if requirements and not requirements.endswith("\n"):
             requirements += "\n"
-        requirements += "google-genai>=1,<2\n"
+        requirements += "google-genai>=2.3,<3\n"
         requirements_path.write_text(requirements, encoding="utf-8")
 
     notices_path = root / "THIRD_PARTY_NOTICES.txt"
@@ -57,6 +85,14 @@ def main() -> None:
     for path in required:
         if not path.is_file():
             raise RuntimeError(f"0.10.6 overlay file was not copied: {path}")
+
+    _patch_gemini_runtime(root)
+
+    runtime = (root / "app" / "services" / "assistant_gemini_service.py").read_text(encoding="utf-8")
+    if 'len(raw) > 14 * 1024 * 1024' not in runtime:
+        raise RuntimeError("0.10.6 Gemini inline image safety patch was not applied")
+    if 'getattr(interaction, "status"' in runtime:
+        raise RuntimeError("0.10.6 obsolete Gemini interaction status check is still present")
 
     print("Ciros Paint 0.10.6 functional Gemini assistant overlay applied")
 
