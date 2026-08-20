@@ -2,6 +2,44 @@
 
 Este archivo resume la evolución reciente del proyecto. El repositorio conserva además los overlays/parches históricos utilizados para reconstruir cada versión.
 
+## 0.10.7 - 20/08/2026
+
+Optimización local-first de Ciros Assistant y ampliación de su integración con Ciros Paint.
+
+### Añadido
+
+- `AssistantLocalService` para resolver operaciones deterministas sin consumir Gemini.
+- Consultas locales de pinturas, stock, agotadas/casi agotadas y Futuras compras.
+- Búsqueda y actualización local de miniaturas y sus estados: Sin montar, Montado, Pintado y Terminado.
+- Resolución específica de nombres de miniaturas cuando hace falta interpretación adicional.
+- Autocompletado local de pinturas mediante `QCompleter`.
+- Visualización `Consulta local · 0 tokens Gemini` cuando la petición no usa el proveedor.
+- Registro y presentación del consumo de tokens cuando Gemini devuelve metadatos de uso.
+- Renderizado Markdown y soporte de respuestas largas sin truncado.
+- Mejoras visuales para imágenes adjuntas en el chat.
+- Batería manual específica `MANUAL_TESTS_0.10.7.md`.
+
+### Optimización de Gemini
+
+- Gemini pasa a ser fallback para consultas que no pueden resolverse localmente.
+- `thinking_level="low"` en las llamadas del asistente y en la comprobación de conexión.
+- Consultas generales sin exponer tools cuando no son necesarias.
+- Las operaciones que realmente requieren function calling mantienen exactamente las siete herramientas controladas de pinturas.
+- El resolvedor de miniaturas usa una llamada separada sin tools.
+- El historial enviado al proveedor se limita a los turnos recientes necesarios.
+- Mensajes de cuota 429 mejorados, incluyendo información de reintento cuando está disponible.
+
+### Validación
+
+- **115 tests: OK**.
+- Smoke test funcional de 0.10.7: **OK**.
+- GitHub Actions run `32397932655`: **SUCCESS**.
+- Overlay SHA-256: `062ae2b06e881f1d243b3ae7a4cbe150d889b46fb938f98735bd45c2def89f1b`.
+- EXE: `CirosPaint_0.10.7.exe`.
+- Tamaño EXE: `244382691` bytes.
+- SHA-256 EXE: `ba333211e9684efd4ffb0a03175aeeb55afd152d32e7e4aef1cbae7d98a2f50e`.
+- Artefacto: `CirosPaint-Windows-0.10.7`, ID `9417510361`.
+
 ## 0.10.6 - 20/08/2026
 
 Primera versión funcional de Ciros Assistant con Gemini.
