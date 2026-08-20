@@ -4,27 +4,30 @@
 
 ## Estado actual
 
-Versión más reciente validada: **Ciros Paint 0.10.6**
+Versión más reciente validada: **Ciros Paint 0.10.7**
 
-Rama de verificación: `build/verify-0.10.6`
+Rama de verificación utilizada: `build/verify-0.10.7`
 
-PR principal de integración: **#25 - Verify Ciros Paint 0.10.6 functional Gemini assistant**
+PR principal de integración: **#26 - Verify Ciros Paint 0.10.7 local-first assistant**
 
-La familia 0.10 amplía la base consolidada de 0.9 con análisis de pinturas en Favoritos y la introducción progresiva de Ciros Assistant.
+Merge en `main`: `3c26b32663699367a180dd10142b33a2925e8ff3`
 
-## Validación automática final de 0.10.6
+La familia 0.10 amplía la base consolidada de 0.9 con análisis de pinturas en Favoritos y Ciros Assistant. La 0.10.7 cambia el asistente a una arquitectura **local-first**: las operaciones deterministas se resuelven dentro de Ciros Paint sin gastar tokens y Gemini queda como capa de interpretación/generación cuando realmente es necesario.
 
-GitHub Actions run: `32382923636` (#205)
+## Validación automática final de 0.10.7
+
+GitHub Actions run: `32397932655` (#230)
 
 Resultado: **SUCCESS**
 
 Validado:
 
-- reconstrucción completa desde la fuente histórica hasta 0.10.6;
+- reconstrucción completa desde la fuente histórica hasta 0.10.7;
+- overlay 0.10.7 reconstruido desde nueve fragmentos y validado por SHA-256;
 - instalación del SDK oficial `google-genai`;
 - disponibilidad de Interactions API;
 - catálogos y assets;
-- **113 tests**, todos OK;
+- **115 tests**, todos OK;
 - smoke test funcional del asistente, OK;
 - build PyInstaller Windows, OK;
 - subida del artefacto, OK.
@@ -38,31 +41,39 @@ Entorno de CI validado:
 - SQLAlchemy 2.0.52;
 - `google-genai` 2.19.0.
 
-## Build 0.10.6
+## Build 0.10.7
 
-Artefacto: `CirosPaint-Windows-0.10.6`
+Overlay reconstruido: `CirosPaint_0.10.7_overlay.zip`
 
-Artifact ID: `9411981601`
+SHA-256 overlay:
 
-Ejecutable: `CirosPaint_0.10.6.exe`
+`062ae2b06e881f1d243b3ae7a4cbe150d889b46fb938f98735bd45c2def89f1b`
 
-Tamaño EXE: `244346433` bytes
+Artefacto: `CirosPaint-Windows-0.10.7`
+
+Artifact ID: `9417510361`
+
+Ejecutable: `CirosPaint_0.10.7.exe`
+
+Tamaño EXE: `244382691` bytes
 
 SHA-256 EXE:
 
-`58c3ae2560c9afeda18dc4a9c49466ebfe8c9abf14f80b4f81d75d5019bf1aa0`
+`ba333211e9684efd4ffb0a03175aeeb55afd152d32e7e4aef1cbae7d98a2f50e`
 
-Tamaño ZIP del artefacto: `242954430` bytes
+Tamaño ZIP del artefacto: `242991446` bytes
 
 SHA-256 ZIP GitHub Actions:
 
-`24f5b5a2ed2effc2bfb22a192681aac8f9afc9e3f489f3688af2c4e3cb7db4ce`
+`90e4e9b2d4b66f4e4debd69bc162d79f3e1593fb48287080ceae9e4d8ecf9a1f`
 
 Caducidad inicial del artefacto: **19/09/2026**.
 
+El EXE se volvió a extraer del artefacto descargado y se verificó de forma independiente: tamaño y SHA-256 coinciden con los registrados por la CI.
+
 ## Catálogos y assets
 
-Build 0.10.6:
+Build 0.10.7:
 
 - catálogo de pinturas generado: **2511 pinturas**;
 - todas las pinturas del catálogo validado incluyen metadatos Lab;
@@ -100,6 +111,8 @@ Estados disponibles:
 - Montado
 - Pintado
 - Terminado
+
+Ciros Assistant 0.10.7 puede consultar y modificar operaciones compatibles de la colección mediante la capa local, preservando los contadores de estado.
 
 ### Buscador de tutoriales
 
@@ -157,34 +170,54 @@ Primera integración funcional de Gemini:
 - contexto temporal en RAM;
 - entrada multimodal;
 - function calling;
-- ejecución local de las siete herramientas;
+- ejecución local de las siete herramientas de pinturas;
 - comprobación real de conexión;
 - ejecución asíncrona para no bloquear PySide6;
 - errores de autenticación, red, timeout, 429 y 503 tratados de forma explícita.
+
+### 0.10.7
+
+Optimización local-first y ampliación de Ciros Assistant:
+
+- `AssistantLocalService` para operaciones deterministas sin Gemini;
+- consultas locales de pinturas, stock, agotadas/casi agotadas y compras;
+- consulta y actualización local de miniaturas/estados;
+- autocompletado local;
+- indicador `Consulta local · 0 tokens Gemini`;
+- Gemini usado como fallback;
+- `thinking_level="low"`;
+- consultas generales sin tools innecesarias;
+- las siete herramientas de pinturas permanecen controladas y sin acceso SQL directo;
+- resolvedor de nombres de miniaturas mediante llamada separada sin tools;
+- reducción del historial enviado al proveedor;
+- métricas de tokens visibles cuando están disponibles;
+- mejor tratamiento de cuota 429 y reintentos;
+- Markdown, mensajes largos completos y mejoras de imágenes en el chat.
 
 ## Ciros Assistant - reglas de arquitectura
 
 La IA no tiene acceso directo a la base de datos.
 
-Flujo:
+Flujo 0.10.7:
 
 ```text
 Usuario
-  -> Gemini interpreta la petición
-  -> Gemini solicita una herramienta cuando necesita datos/acciones locales
-  -> Ciros Paint valida y ejecuta la herramienta
-  -> SQLite/repositories locales
-  -> resultado estructurado a Gemini
-  -> respuesta al usuario
+  -> Ciros Paint intenta resolver localmente
+       -> si es determinista: repositories/SQLite -> respuesta local (0 tokens)
+       -> si necesita interpretación/generación: Gemini
+            -> respuesta general sin tools, o
+            -> tools controladas de pinturas cuando procede
+            -> Ciros Paint valida y ejecuta localmente
+  -> respuesta final en el chat
 ```
 
-La base de datos local es la fuente de verdad para inventario, cantidades y compras.
+La base de datos local es la fuente de verdad para inventario, cantidades, compras y colección de miniaturas.
 
 Las operaciones ambiguas no deben modificar datos hasta obtener una aclaración.
 
 Las conversaciones son temporales y no se persisten entre ejecuciones.
 
-## Herramientas iniciales del asistente
+## Herramientas controladas de pinturas
 
 1. `search_paints`
 2. `get_paint_stock`
@@ -193,6 +226,8 @@ Las conversaciones son temporales y no se persisten entre ejecuciones.
 5. `set_paint_quantity`
 6. `add_paint_to_future_purchases`
 7. `list_future_paint_purchases`
+
+0.10.7 mantiene exactamente estas siete herramientas para function calling. La resolución de miniaturas no amplía indiscriminadamente ese registro: usa la capa local y, cuando hace falta interpretación adicional de un nombre, una llamada específica sin tools.
 
 ## Persistencia de datos
 
@@ -210,10 +245,8 @@ Actualizar el ejecutable no debe eliminar el inventario existente.
 
 ## Pendiente de validación manual específica
 
-Aunque CI verifica el SDK, tool-calling mediante mocks, errores y UI, la integración con una API Key real depende del proyecto/cuota Gemini del usuario.
-
-La batería manual está documentada en `MANUAL_TESTS_0.10.6.md`.
+La CI verifica comportamiento local, mocks de Gemini, tool-calling, errores, UI, catálogos y build. Las comprobaciones que dependen de una API Key real, cuota real del proyecto Gemini y revisión visual del ejecutable se documentan en `MANUAL_TESTS_0.10.7.md`.
 
 ## Próximos pasos posibles
 
-Antes de añadir capacidades nuevas al asistente, conviene cerrar la validación manual completa de 0.10.6. Después se pueden valorar mejoras como streaming de respuestas, indicadores de herramientas ejecutadas, nuevas herramientas locales y refinamientos de UX.
+Con la optimización local-first ya integrada, las siguientes mejoras deberían priorizar reducción adicional de llamadas al proveedor, cobertura de más operaciones locales deterministas, streaming si aporta valor real y refinamientos de UX medidos sobre uso real.
