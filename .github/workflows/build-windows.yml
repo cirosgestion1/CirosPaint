@@ -3,7 +3,7 @@ name: Build Windows EXE
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [build/verify-0.10.6]
   pull_request:
     branches: [main]
 
@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Rebuild consolidated Ciros Paint 0.9
+      - name: Rebuild Ciros Paint 0.9 and apply 0.10.6
         shell: pwsh
         run: |
           function Rebuild-Zip($pattern, $expectedCount, $output, $expectedHash) {
@@ -89,7 +89,31 @@ jobs:
           $config = $config.Replace('APP_VERSION = "0.9.4.1"', 'APP_VERSION = "0.9"')
           Set-Content $configPath $config -Encoding utf8
 
-          python -c "from pathlib import Path; ns={}; exec(Path('build_source/app/core/config.py').read_text(encoding='utf-8'), ns); assert ns['APP_VERSION']=='0.9'; p=Path('build_source/app/ui/dialogs/youtube_player_dialog.py').read_text(encoding='utf-8'); assert 'dispose_web_engine_view' in p and 'setAudioMuted(True)' in p and 'LifecycleState.Discarded' in p; y=Path('build_source/app/services/youtube_service.py').read_text(encoding='utf-8'); assert 'build_language_search_plan' in y; print('Ciros Paint 0.9 consolidated source verified')"
+          Copy-Item 'patches/v0.10.1/overlay/app/*' 'build_source/app' -Recurse -Force
+          Copy-Item 'patches/v0.10.1/overlay/tests/*' 'build_source/tests' -Recurse -Force
+          python patches/v0.10.1/apply_v0101.py build_source
+
+          Copy-Item 'patches/v0.10.2/overlay/app/*' 'build_source/app' -Recurse -Force
+          Copy-Item 'patches/v0.10.2/overlay/tests/*' 'build_source/tests' -Recurse -Force
+          python patches/v0.10.2/apply_v0102.py build_source
+
+          Copy-Item 'patches/v0.10.3/overlay/app/*' 'build_source/app' -Recurse -Force
+          Copy-Item 'patches/v0.10.3/overlay/tests/*' 'build_source/tests' -Recurse -Force
+          python patches/v0.10.3/apply_v0103.py build_source
+
+          Copy-Item 'patches/v0.10.4/overlay/app/*' 'build_source/app' -Recurse -Force
+          Copy-Item 'patches/v0.10.4/overlay/tests/*' 'build_source/tests' -Recurse -Force
+          python patches/v0.10.4/apply_v0104.py build_source
+
+          Copy-Item 'patches/v0.10.5/overlay/app/*' 'build_source/app' -Recurse -Force
+          Copy-Item 'patches/v0.10.5/overlay/tests/*' 'build_source/tests' -Recurse -Force
+          python patches/v0.10.5/apply_v0105.py build_source
+
+          Copy-Item 'patches/v0.10.6/overlay/app/*' 'build_source/app' -Recurse -Force
+          Copy-Item 'patches/v0.10.6/overlay/tests/*' 'build_source/tests' -Recurse -Force
+          python patches/v0.10.6/apply_v0106.py build_source
+
+          python -c "from pathlib import Path; ns={}; exec(Path('build_source/app/core/config.py').read_text(encoding='utf-8'), ns); assert ns['APP_VERSION']=='0.10.6'; req=Path('build_source/requirements.txt').read_text(encoding='utf-8'); assert 'google-genai>=2.3,<3' in req; g=Path('build_source/app/services/assistant_gemini_service.py').read_text(encoding='utf-8'); assert 'gemini-3.7-flash' in g and 'store=False' in g and 'function_result' in g and 'len(raw) > 14 * 1024 * 1024' in g and 'unexpected_status' not in g; a=Path('build_source/app/ui/pages/assistant_page.py').read_text(encoding='utf-8'); assert 'Gemini está pensando' in a and 'AssistantRequestTask' in a; s=Path('build_source/app/ui/pages/settings_page.py').read_text(encoding='utf-8'); assert 'GeminiConnectionTask' in s; print('Ciros Paint 0.10.6 functional Gemini overlay verified')"
 
       - name: Set up paint catalog and dependencies
         shell: pwsh
@@ -106,6 +130,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip install pyinstaller
+          python -c "from google import genai; import google.genai; c=genai.Client(api_key='AQ.fake-ciros-paint'); assert callable(c.interactions.create); c.close(); print('google-genai', getattr(google.genai,'__version__','unknown'), 'Interactions API available')"
 
       - name: Build catalogs and verify assets
         shell: pwsh
@@ -114,7 +139,7 @@ jobs:
           $env:PYTHONPATH = (Get-Location).Path
           python tools/build_paint_catalog.py "$env:GITHUB_WORKSPACE\catalog_source" app/data/paint_catalog.json
           python tools/download_miniature_assets.py
-          python -c "import json,pathlib; p=json.loads(pathlib.Path('app/data/paint_catalog.json').read_text(encoding='utf-8')); m=json.loads(pathlib.Path('app/data/miniature_catalog.json').read_text(encoding='utf-8')); assert len(p)>500; assert m.get('catalog_revision')=='0.8.1'; assert sum(len(f['units']) for g in m['games'] for f in g['factions'])>500; print('Catalogs OK')"
+          python -c "import json,pathlib; p=json.loads(pathlib.Path('app/data/paint_catalog.json').read_text(encoding='utf-8')); m=json.loads(pathlib.Path('app/data/miniature_catalog.json').read_text(encoding='utf-8')); assert len(p)>500; assert all(isinstance(x.get('lab'),list) and len(x['lab'])==3 for x in p); assert m.get('catalog_revision')=='0.8.1'; assert sum(len(f['units']) for g in m['games'] for f in g['factions'])>500; print('Catalogs and Lab metadata OK')"
           if (!(Test-Path 'app/assets/favorites/miniatures.svg')) { throw 'Miniaturas favorites banner missing' }
           if (!(Test-Path 'app/assets/favorites/modeling_general.svg')) { throw 'Modelismo general favorites banner missing' }
 
@@ -122,31 +147,33 @@ jobs:
         shell: pwsh
         working-directory: build_source
         run: |
+          $env:QT_QPA_PLATFORM = 'offscreen'
           $env:PYTHONPATH = (Get-Location).Path
           python -m unittest discover -s tests -v
 
-      - name: UI and player shutdown smoke test
+      - name: Functional assistant UI smoke test
         shell: pwsh
         working-directory: build_source
         run: |
           $env:QT_QPA_PLATFORM = 'offscreen'
           $env:PYTHONPATH = (Get-Location).Path
-          python -c "from urllib.request import urlopen; from PySide6.QtWidgets import QApplication; app=QApplication([]); from app.core.config import APP_VERSION; assert APP_VERSION=='0.9'; from app.ui.pages.tutorial_search_page import TutorialSearchPage,_language_badge; from app.services.youtube_service import TutorialVideo,build_language_search_plan; p=TutorialSearchPage(); assert [p.language_filter.itemText(i) for i in range(p.language_filter.count())]==['Todos','Español','Inglés']; plan=build_language_search_plan('pintar Darth Vader',''); assert [x[1] for x in plan]==['es','en']; v=TutorialVideo('dQw4w9WgXcQ','How to paint Darth Vader','Test','','','https://www.youtube.com/watch?v=dQw4w9WgXcQ','1:00','2026-01-01T00:00:00Z',1,1,language_code='en'); b=_language_badge(v); assert b.text()=='EN'; from app.ui.dialogs.youtube_player_dialog import LoopbackPlayerServer,YouTubePlayerDialog; s=LoopbackPlayerServer('dQw4w9WgXcQ'); s.start(); r=urlopen(s.url.toString(),timeout=3); h=r.read().decode('utf-8'); assert 'youtube.com/embed/dQw4w9WgXcQ' in h; s.stop(); d=YouTubePlayerDialog('dQw4w9WgXcQ','Test','https://www.youtube.com/watch?v=dQw4w9WgXcQ'); assert d.web is not None and d._player_server is not None; d.reject(); assert d.web is None and d._player_server is None and d._player_shutdown; print('Ciros Paint 0.9 stable UI/player shutdown smoke test OK')"
+          python -c "from PySide6.QtWidgets import QApplication,QLineEdit; app=QApplication([]); from app.core.config import APP_VERSION; assert APP_VERSION=='0.10.6'; from app.ui.pages.assistant_page import AssistantPage; p=AssistantPage(); assert p.send_button.text()=='Enviar' and not p.busy; from app.ui.pages.settings_page import SettingsPage; s=SettingsPage(); assert s.gemini_api_key_input.echoMode()==QLineEdit.Password and s.gemini_test_button.text()=='Comprobar conexión'; from app.services.assistant_gemini_service import GeminiAssistantService; tools=GeminiAssistantService._gemini_tool_declarations(); assert len(tools)==7 and all(t['type']=='function' for t in tools); p.close(); s.close(); print('Ciros Paint 0.10.6 functional assistant smoke test OK')"
 
-      - name: Build CirosPaint_0.9.exe
+      - name: Build CirosPaint_0.10.6.exe
         shell: pwsh
         working-directory: build_source
         run: |
-          python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint --add-data "app/data/paint_catalog.json;app/data" --add-data "app/data/miniature_catalog.json;app/data" --add-data "app/assets/brands;app/assets/brands" --add-data "app/assets/miniatures;app/assets/miniatures" --add-data "app/assets/favorites;app/assets/favorites" --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "MINIATURE_ASSET_SOURCES.md;." main.py
+          python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint --collect-all google.genai --add-data "app/data/paint_catalog.json;app/data" --add-data "app/data/miniature_catalog.json;app/data" --add-data "app/assets/brands;app/assets/brands" --add-data "app/assets/miniatures;app/assets/miniatures" --add-data "app/assets/favorites;app/assets/favorites" --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "MINIATURE_ASSET_SOURCES.md;." main.py
           if (!(Test-Path 'dist/CirosPaint.exe')) { throw 'CirosPaint.exe was not generated' }
-          Move-Item 'dist/CirosPaint.exe' 'dist/CirosPaint_0.9.exe'
-          if (!(Test-Path 'dist/CirosPaint_0.9.exe')) { throw 'CirosPaint_0.9.exe was not generated' }
-          $exeHash = (Get-FileHash 'dist/CirosPaint_0.9.exe' -Algorithm SHA256).Hash.ToLower()
-          Write-Host "CirosPaint_0.9.exe SHA256: $exeHash"
+          Move-Item 'dist/CirosPaint.exe' 'dist/CirosPaint_0.10.6.exe'
+          if (!(Test-Path 'dist/CirosPaint_0.10.6.exe')) { throw 'CirosPaint_0.10.6.exe was not generated' }
+          Get-Item dist/CirosPaint_0.10.6.exe | Format-List Name,Length,FullName
+          $exeHash = (Get-FileHash 'dist/CirosPaint_0.10.6.exe' -Algorithm SHA256).Hash.ToLower()
+          Write-Host "CirosPaint_0.10.6.exe SHA256: $exeHash"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CirosPaint-Windows-0.9
-          path: build_source/dist/CirosPaint_0.9.exe
+          name: CirosPaint-Windows-0.10.6
+          path: build_source/dist/CirosPaint_0.10.6.exe
           if-no-files-found: error
           retention-days: 30

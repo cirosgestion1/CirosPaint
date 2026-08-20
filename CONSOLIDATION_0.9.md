@@ -1,13 +1,15 @@
 # Consolidación Ciros Paint 0.9
 
-La familia 0.9.x queda cerrada con el estado funcional validado manualmente de **0.9.4.1**.
+> **Documento histórico.** Esta consolidación describe el cierre de la familia 0.9. El estado actual del proyecto está documentado en `README.md` y `PROJECT_STATUS.md` y corresponde a la familia 0.10, con **Ciros Paint 0.10.6** como última versión validada a 20/08/2026.
 
-Este estado se consolida en `main` como **Ciros Paint 0.9**, siguiendo la política del proyecto:
+La familia 0.9.x quedó cerrada con el estado funcional validado manualmente de **0.9.4.1**.
+
+Este estado se consolidó en `main` como **Ciros Paint 0.9**, siguiendo la política vigente en ese momento:
 
 - `0.x.y` = revisiones internas de desarrollo y corrección.
 - `0.x` = bloque cerrado y consolidado en `main`.
 
-## Estado final incluido
+## Estado final incluido en 0.9
 
 - Buscador especializado de tutoriales mediante YouTube Data API.
 - Filtro de idioma Todos / Español / Inglés.
@@ -17,7 +19,7 @@ Este estado se consolida en `main` como **Ciros Paint 0.9**, siguiendo la polít
 - Favoritos organizados en Miniaturas y Modelismo general, con cambio manual de categoría.
 - Persistencia local fuera del ejecutable.
 
-## Validación final
+## Validación final de 0.9
 
 La revisión interna 0.9.4.1 superó GitHub Actions y fue validada manualmente en Windows. Se confirmó que:
 
@@ -26,4 +28,8 @@ La revisión interna 0.9.4.1 superó GitHub Actions y fue validada manualmente e
 - los tags de idioma funcionan;
 - cerrar el reproductor detiene inmediatamente vídeo y audio.
 
-La siguiente etapa de desarrollo será **Ciros Paint 1.0**.
+## Evolución posterior
+
+La planificación cambió después de cerrar 0.9: antes de 1.0 se abrió la familia **0.10**, dedicada principalmente al análisis de pinturas en Favoritos y al desarrollo de Ciros Assistant.
+
+Consultar `CHANGELOG.md` para la evolución 0.10.1 -> 0.10.6.
