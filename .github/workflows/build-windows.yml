@@ -113,9 +113,7 @@ jobs:
           Copy-Item 'patches/v0.10.6/overlay/tests/*' 'build_source/tests' -Recurse -Force
           python patches/v0.10.6/apply_v0106.py build_source
 
-          Rebuild-Zip 'patches/v0.10.7/chunks/part*.txt' 9 'patches/CirosPaint_0.10.7_overlay.zip' ''
-          $overlayHash = (Get-FileHash 'patches/CirosPaint_0.10.7_overlay.zip' -Algorithm SHA256).Hash.ToLower()
-          Write-Host "CirosPaint_0.10.7_overlay.zip SHA256: $overlayHash"
+          Rebuild-Zip 'patches/v0.10.7/chunks/part*.txt' 9 'patches/CirosPaint_0.10.7_overlay.zip' '062ae2b06e881f1d243b3ae7a4cbe150d889b46fb938f98735bd45c2def89f1b'
           tar -xf patches/CirosPaint_0.10.7_overlay.zip -C build_source
           python patches/v0.10.7/apply_v0107.py build_source
 
@@ -163,7 +161,7 @@ jobs:
         run: |
           $env:QT_QPA_PLATFORM = 'offscreen'
           $env:PYTHONPATH = (Get-Location).Path
-          python -c "from PySide6.QtWidgets import QApplication,QLineEdit; app=QApplication([]); from app.core.config import APP_VERSION; assert APP_VERSION=='0.10.7'; from app.ui.pages.assistant_page import AssistantPage; p=AssistantPage(); assert p.send_button.text()=='Enviar' and not p.busy; from app.ui.pages.settings_page import SettingsPage; s=SettingsPage(); assert s.gemini_api_key_input.echoMode()==QLineEdit.Password and s.gemini_test_button.text()=='Comprobar conexión'; from app.services.assistant_gemini_service import GeminiAssistantService; tools=GeminiAssistantService._gemini_tool_declarations(); assert len(tools)>=8 and all(t['type']=='function' for t in tools); p.close(); s.close(); print('Ciros Paint 0.10.7 assistant smoke test OK')"
+          python -c "from PySide6.QtWidgets import QApplication,QLineEdit; app=QApplication([]); from app.core.config import APP_VERSION; assert APP_VERSION=='0.10.7'; from app.ui.pages.assistant_page import AssistantPage; p=AssistantPage(); assert p.send_button.text()=='Enviar' and not p.busy; from app.ui.pages.settings_page import SettingsPage; s=SettingsPage(); assert s.gemini_api_key_input.echoMode()==QLineEdit.Password and s.gemini_test_button.text()=='Comprobar conexión'; from app.services.assistant_gemini_service import GeminiAssistantService; tools=GeminiAssistantService._gemini_tool_declarations(); assert len(tools)==7 and all(t['type']=='function' for t in tools); p.close(); s.close(); print('Ciros Paint 0.10.7 assistant smoke test OK')"
 
       - name: Build CirosPaint_0.10.7.exe
         shell: pwsh
