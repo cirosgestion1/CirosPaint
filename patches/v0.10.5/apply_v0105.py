@@ -26,6 +26,11 @@ def main() -> None:
         if not path.is_file():
             raise RuntimeError(f"0.10.5 overlay file was not copied: {path}")
 
+    # 0.10.5 intentionally moves Gemini configuration out of AssistantPage,
+    # so the version-specific 0.10.4 UI assertions are obsolete.
+    legacy_test = root / "tests" / "test_assistant_ui_v0104.py"
+    legacy_test.unlink(missing_ok=True)
+
     print("Ciros Paint 0.10.5 assistant/settings overlay applied")
 
 
