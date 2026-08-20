@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -57,7 +57,7 @@ class SettingsPage(QWidget):
         description.setObjectName("Muted")
 
         path = QLabel(str(DATABASE_PATH))
-        path.setTextInteractionFlags(path.textInteractionFlags() | 1)
+        path.setTextInteractionFlags(Qt.TextSelectableByMouse)
         path.setWordWrap(True)
         path.setStyleSheet("font-family: Consolas, monospace; color: #cbd5e1;")
 
