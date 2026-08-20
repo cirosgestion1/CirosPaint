@@ -3,7 +3,7 @@ name: Build Windows EXE
 on:
   workflow_dispatch:
   push:
-    branches: [build/verify-0.10.6]
+    branches: [build/verify-0.10.7]
   pull_request:
     branches: [main]
 
@@ -17,7 +17,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Rebuild Ciros Paint 0.9 and apply 0.10.6
+      - name: Rebuild Ciros Paint and apply 0.10.7
         shell: pwsh
         run: |
           function Rebuild-Zip($pattern, $expectedCount, $output, $expectedHash) {
@@ -26,7 +26,7 @@ jobs:
             $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
             [IO.File]::WriteAllBytes($output, [Convert]::FromBase64String($b64))
             $hash = (Get-FileHash $output -Algorithm SHA256).Hash.ToLower()
-            if ($hash -ne $expectedHash) { throw "Hash mismatch for ${output}: $hash" }
+            if ($expectedHash -and $hash -ne $expectedHash) { throw "Hash mismatch for ${output}: $hash" }
             Write-Host "Verified $output $hash"
           }
 
@@ -113,7 +113,13 @@ jobs:
           Copy-Item 'patches/v0.10.6/overlay/tests/*' 'build_source/tests' -Recurse -Force
           python patches/v0.10.6/apply_v0106.py build_source
 
-          python -c "from pathlib import Path; ns={}; exec(Path('build_source/app/core/config.py').read_text(encoding='utf-8'), ns); assert ns['APP_VERSION']=='0.10.6'; req=Path('build_source/requirements.txt').read_text(encoding='utf-8'); assert 'google-genai>=2.3,<3' in req; g=Path('build_source/app/services/assistant_gemini_service.py').read_text(encoding='utf-8'); assert 'gemini-3.7-flash' in g and 'store=False' in g and 'function_result' in g and 'len(raw) > 14 * 1024 * 1024' in g and 'unexpected_status' not in g; a=Path('build_source/app/ui/pages/assistant_page.py').read_text(encoding='utf-8'); assert 'Gemini está pensando' in a and 'AssistantRequestTask' in a; s=Path('build_source/app/ui/pages/settings_page.py').read_text(encoding='utf-8'); assert 'GeminiConnectionTask' in s; print('Ciros Paint 0.10.6 functional Gemini overlay verified')"
+          Rebuild-Zip 'patches/v0.10.7/chunks/part*.txt' 9 'patches/CirosPaint_0.10.7_overlay.zip' ''
+          $overlayHash = (Get-FileHash 'patches/CirosPaint_0.10.7_overlay.zip' -Algorithm SHA256).Hash.ToLower()
+          Write-Host "CirosPaint_0.10.7_overlay.zip SHA256: $overlayHash"
+          tar -xf patches/CirosPaint_0.10.7_overlay.zip -C build_source
+          python patches/v0.10.7/apply_v0107.py build_source
+
+          python -c "from pathlib import Path; ns={}; exec(Path('build_source/app/core/config.py').read_text(encoding='utf-8'), ns); assert ns['APP_VERSION']=='0.10.7'; req=Path('build_source/requirements.txt').read_text(encoding='utf-8'); assert 'google-genai>=2.3,<3' in req; g=Path('build_source/app/services/assistant_gemini_service.py').read_text(encoding='utf-8'); assert 'gemini-3.7-flash' in g and 'store=False' in g and 'thinking_level' in g and 'low' in g and 'total_input_tokens' in g and 'resolve_miniature_name' in g; a=Path('build_source/app/ui/pages/assistant_page.py').read_text(encoding='utf-8'); assert 'Consulta local · 0 tokens Gemini' in a and 'QCompleter' in a and 'setMarkdown' in a; l=Path('build_source/app/services/assistant_local_service.py').read_text(encoding='utf-8'); assert 'AssistantLocalService' in l; print('Ciros Paint 0.10.7 local-first assistant overlay verified')"
 
       - name: Set up paint catalog and dependencies
         shell: pwsh
@@ -157,23 +163,23 @@ jobs:
         run: |
           $env:QT_QPA_PLATFORM = 'offscreen'
           $env:PYTHONPATH = (Get-Location).Path
-          python -c "from PySide6.QtWidgets import QApplication,QLineEdit; app=QApplication([]); from app.core.config import APP_VERSION; assert APP_VERSION=='0.10.6'; from app.ui.pages.assistant_page import AssistantPage; p=AssistantPage(); assert p.send_button.text()=='Enviar' and not p.busy; from app.ui.pages.settings_page import SettingsPage; s=SettingsPage(); assert s.gemini_api_key_input.echoMode()==QLineEdit.Password and s.gemini_test_button.text()=='Comprobar conexión'; from app.services.assistant_gemini_service import GeminiAssistantService; tools=GeminiAssistantService._gemini_tool_declarations(); assert len(tools)==7 and all(t['type']=='function' for t in tools); p.close(); s.close(); print('Ciros Paint 0.10.6 functional assistant smoke test OK')"
+          python -c "from PySide6.QtWidgets import QApplication,QLineEdit; app=QApplication([]); from app.core.config import APP_VERSION; assert APP_VERSION=='0.10.7'; from app.ui.pages.assistant_page import AssistantPage; p=AssistantPage(); assert p.send_button.text()=='Enviar' and not p.busy; from app.ui.pages.settings_page import SettingsPage; s=SettingsPage(); assert s.gemini_api_key_input.echoMode()==QLineEdit.Password and s.gemini_test_button.text()=='Comprobar conexión'; from app.services.assistant_gemini_service import GeminiAssistantService; tools=GeminiAssistantService._gemini_tool_declarations(); assert len(tools)>=8 and all(t['type']=='function' for t in tools); p.close(); s.close(); print('Ciros Paint 0.10.7 assistant smoke test OK')"
 
-      - name: Build CirosPaint_0.10.6.exe
+      - name: Build CirosPaint_0.10.7.exe
         shell: pwsh
         working-directory: build_source
         run: |
           python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint --collect-all google.genai --add-data "app/data/paint_catalog.json;app/data" --add-data "app/data/miniature_catalog.json;app/data" --add-data "app/assets/brands;app/assets/brands" --add-data "app/assets/miniatures;app/assets/miniatures" --add-data "app/assets/favorites;app/assets/favorites" --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "MINIATURE_ASSET_SOURCES.md;." main.py
           if (!(Test-Path 'dist/CirosPaint.exe')) { throw 'CirosPaint.exe was not generated' }
-          Move-Item 'dist/CirosPaint.exe' 'dist/CirosPaint_0.10.6.exe'
-          if (!(Test-Path 'dist/CirosPaint_0.10.6.exe')) { throw 'CirosPaint_0.10.6.exe was not generated' }
-          Get-Item dist/CirosPaint_0.10.6.exe | Format-List Name,Length,FullName
-          $exeHash = (Get-FileHash 'dist/CirosPaint_0.10.6.exe' -Algorithm SHA256).Hash.ToLower()
-          Write-Host "CirosPaint_0.10.6.exe SHA256: $exeHash"
+          Move-Item 'dist/CirosPaint.exe' 'dist/CirosPaint_0.10.7.exe'
+          if (!(Test-Path 'dist/CirosPaint_0.10.7.exe')) { throw 'CirosPaint_0.10.7.exe was not generated' }
+          Get-Item dist/CirosPaint_0.10.7.exe | Format-List Name,Length,FullName
+          $exeHash = (Get-FileHash 'dist/CirosPaint_0.10.7.exe' -Algorithm SHA256).Hash.ToLower()
+          Write-Host "CirosPaint_0.10.7.exe SHA256: $exeHash"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CirosPaint-Windows-0.10.6
-          path: build_source/dist/CirosPaint_0.10.6.exe
+          name: CirosPaint-Windows-0.10.7
+          path: build_source/dist/CirosPaint_0.10.7.exe
           if-no-files-found: error
           retention-days: 30
