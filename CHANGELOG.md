@@ -2,6 +2,33 @@
 
 Este archivo resume la evolución reciente del proyecto. El repositorio conserva además los overlays/parches históricos utilizados para reconstruir cada versión.
 
+## 0.10.8 - 21/08/2026
+
+Refuerzo de la arquitectura local-first de Ciros Assistant para automatizar más operaciones sin Gemini.
+
+### Añadido
+
+- `LocalEntityResolver` con normalización, coincidencia aproximada y control de confianza.
+- `AssistantWorkflowEngine` para flujos guiados y repetibles.
+- Autocompletado contextual de miniaturas: al cambiar estado se muestran solo unidades ya presentes en la colección; al añadir miniaturas se mantiene el catálogo completo.
+- Confirmaciones precisas de cambios de estado con cantidad, unidad y estado final.
+- Acción `Cambiar otra miniatura` para repetir el workflow dentro de la misma conversación.
+- Fallback automático a Gemini cuando una pintura o miniatura no puede resolverse localmente con seguridad.
+- Validación posterior contra el catálogo/base local para impedir que Gemini invente entidades.
+- Contador diario persistente de requests reales a Gemini visible en Ajustes.
+- Compatibilidad corregida con los contadores reales de miniaturas `unassembled_count`, `assembled_count`, `painted_count` y `finished_count`.
+
+### Validación
+
+- **128 tests: OK**.
+- Smoke test funcional de 0.10.8: **OK**.
+- GitHub Actions run `32475688035`: **SUCCESS**.
+- Overlay SHA-256: `d85dc1f7c9b168890f9f03d4f5973979fbafe73ff2712fbf7428d628ce09e860`.
+- EXE: `CirosPaint_0.10.8.exe`.
+- Tamaño EXE: `244399034` bytes.
+- SHA-256 EXE: `39f2bf097cf252cf94740428ee5b4d4f589b0bf487d42236bc3396ef22d6be38`.
+- Artefacto: `CirosPaint-Windows-0.10.8`, ID `9444337506`.
+
 ## 0.10.7 - 20/08/2026
 
 Optimización local-first de Ciros Assistant y ampliación de su integración con Ciros Paint.
