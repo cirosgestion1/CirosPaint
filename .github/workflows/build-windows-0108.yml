@@ -1,11 +1,7 @@
 name: Build Windows EXE 0.10.8
 
 on:
-  workflow_dispatch:
-  push:
-    branches: [build/verify-0.10.8]
-  pull_request:
-    branches: [main]
+  workflow_call:
 
 jobs:
   build:
@@ -17,33 +13,9 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Rebuild Ciros Paint and apply 0.10.8
+      - name: Rebuild Ciros Paint 0.10.8
         shell: pwsh
-        run: |
-          $yaml = Get-Content '.github/workflows/build-windows.yml' -Raw
-          $pattern = '(?ms)^      - name: Rebuild Ciros Paint and apply 0\.10\.7\r?\n        shell: pwsh\r?\n        run: \|\r?\n(?<script>.*?)(?=^      - name: Set up paint catalog and dependencies)'
-          $match = [regex]::Match($yaml, $pattern)
-          if (-not $match.Success) { throw 'Could not extract the validated 0.10.7 reconstruction step' }
-          $script = ($match.Groups['script'].Value -split "`r?`n" | ForEach-Object {
-            if ($_.StartsWith('          ')) { $_.Substring(10) } else { $_ }
-          }) -join "`n"
-          Invoke-Expression $script
-
-          function Rebuild-Zip($pattern, $expectedCount, $output, $expectedHash) {
-            $parts = Get-ChildItem $pattern | Sort-Object Name
-            if ($parts.Count -ne $expectedCount) { throw "Unexpected chunk count for ${pattern}: $($parts.Count)" }
-            $b64 = ($parts | ForEach-Object { (Get-Content $_.FullName -Raw).Trim() }) -join ''
-            [IO.File]::WriteAllBytes($output, [Convert]::FromBase64String($b64))
-            $hash = (Get-FileHash $output -Algorithm SHA256).Hash.ToLower()
-            if ($hash -ne $expectedHash) { throw "Hash mismatch for ${output}: $hash" }
-            Write-Host "Verified $output $hash"
-          }
-
-          Rebuild-Zip 'patches/v0.10.8/chunks/part*.txt' 6 'patches/CirosPaint_0.10.8_overlay.zip' 'd85dc1f7c9b168890f9f03d4f5973979fbafe73ff2712fbf7428d628ce09e860'
-          tar -xf patches/CirosPaint_0.10.8_overlay.zip -C build_source
-          python patches/v0.10.8/apply_v0108.py build_source
-
-          python -c "from pathlib import Path; ns={}; exec(Path('build_source/app/core/config.py').read_text(encoding='utf-8'), ns); assert ns['APP_VERSION']=='0.10.8'; r=Path('build_source/app/services/assistant_entity_resolver.py').read_text(encoding='utf-8'); assert 'LocalEntityResolver' in r; w=Path('build_source/app/services/assistant_workflow_service.py').read_text(encoding='utf-8'); assert 'AssistantWorkflowEngine' in w; g=Path('build_source/app/services/assistant_gemini_service.py').read_text(encoding='utf-8'); assert 'resolve_paint_name' in g and 'increment_gemini_request_count' in g; a=Path('build_source/app/ui/pages/assistant_page.py').read_text(encoding='utf-8'); l=Path('build_source/app/services/assistant_local_service.py').read_text(encoding='utf-8'); assert 'action_requested' in a and 'PaintResolveTask' in a and 'owned_only=True' in a and 'Cambiar otra miniatura' in l; print('Ciros Paint 0.10.8 overlay verified')"
+        run: ./tools/rebuild_current.ps1
 
       - name: Set up paint catalog and dependencies
         shell: pwsh
