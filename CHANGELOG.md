@@ -2,7 +2,27 @@
 
 Este archivo resume la evolución reciente del proyecto. El repositorio conserva además los overlays/parches históricos utilizados para reconstruir cada versión.
 
-## 0.10.9 - En desarrollo
+## 0.10.10 - En desarrollo
+
+### Añadido
+
+- `CentralizedQueryService`, fachada read-only sobre los repositories y catálogos existentes.
+- Consultas centralizadas de catálogo/inventario/stock de pinturas, Futuras compras, colección y catálogo de miniaturas.
+- Filtros de miniaturas por posesión y estado sin cambios de esquema.
+- Tests de equivalencia entre la nueva fachada y los repositories existentes.
+
+### Refactor
+
+- `AssistantPaintService` y `AssistantLocalService` delegan lecturas compatibles al Query Service.
+- Las páginas de pinturas, compras y miniaturas usan la fachada para sus listados principales.
+- El listado de Futuras compras reutiliza `entry.paint` cargado por `ShoppingRepository` y evita recargar todo el inventario.
+
+### Validación local
+
+- Reconstrucción completa 0.10.10: **OK**.
+- Sin cambios de esquema ni migraciones.
+
+## 0.10.9 - 21/08/2026
 
 Primera fase funcional del siguiente bloque local-first, construida sobre la versión validada 0.10.8.
 
@@ -23,6 +43,15 @@ Primera fase funcional del siguiente bloque local-first, construida sobre la ver
 - **137 tests: OK**.
 - Smoke test PySide6 offscreen: **OK**.
 - Sin cambios de esquema ni migraciones de base de datos.
+
+### Validación CI
+
+- GitHub Actions run `32489725696`: **SUCCESS**.
+- **137 tests: OK**.
+- Smoke PySide6, PyInstaller y artifact upload: **OK**.
+- Ejecutable: `CirosPaint_0.10.9.exe`.
+- SHA-256 EXE: `d02c860d946a674a6d844a62395d007ab749d8ee86c2aa833d3014e2eb7524a8`.
+- Artefacto: `CirosPaint-Windows-0.10.9`, ID `9449420362`.
 
 ## 0.10.8 - 21/08/2026
 

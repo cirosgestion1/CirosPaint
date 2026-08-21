@@ -1,6 +1,6 @@
 # Ciros Assistant - Arquitectura
 
-Documento técnico de referencia para Ciros Assistant. **0.10.8** continúa siendo la versión validada; **0.10.9** está en desarrollo y añade routing local explícito y una política formal de confianza/escalado.
+Documento técnico de referencia para Ciros Assistant. **0.10.9** es la versión validada; **0.10.10** está en desarrollo y añade una capa central de consultas.
 
 ## Objetivo
 
@@ -20,6 +20,8 @@ AssistantPage (PySide6)
   |       |
   |       v
   +--> AssistantLocalService
+  |       |
+  |       +--> CentralizedQueryService -> Repositories / SQLite / catálogos
   |       |
   |       +--> LocalEntityResolver
   |       |       |
@@ -115,7 +117,13 @@ Para pinturas y miniaturas, la capa local intenta resolver primero el nombre. Si
 5. resolución local insuficiente con candidatos reales: permitir Gemini;
 6. sin candidatos: rechazar localmente sin inventar entidades.
 
-Esta fase no incorpora Query Service, Command Bus, Event/Rules Engine, OCR ni reconocimiento de imagen.
+### Query Service centralizado
+
+`CentralizedQueryService` es una fachada exclusivamente de lectura. Expone inventario y catálogo de pinturas, stock, Futuras compras, colección y catálogo de miniaturas, incluido `owned_only` y filtros de estado. Delega en `PaintRepository`, `ShoppingRepository`, `MiniatureRepository`, `PaintCatalogService` y `MiniatureCatalogService`; no mantiene una segunda implementación SQL.
+
+`AssistantPaintService`, `AssistantLocalService` y los listados principales de las páginas de pinturas, compras y miniaturas migran gradualmente a esta fachada. Las mutaciones continúan en los services/repositories existentes.
+
+Esta fase no incorpora Command Bus, Event/Rules Engine, OCR ni reconocimiento de imagen.
 
 ### Workflows guiados
 

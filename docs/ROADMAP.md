@@ -2,14 +2,14 @@
 
 ## Current validated version
 
-Ciros Paint 0.10.8
+Ciros Paint 0.10.9
 
 This document describes what is already implemented, what is planned next,
 and the intended order of future architectural work.
 
 ---
 
-# CURRENT STATE - 0.10.8
+# CURRENT STATE - 0.10.9
 
 ## Local-first assistant foundation
 
@@ -33,6 +33,8 @@ Already implemented:
 - Local operations continue working without a Gemini API key.
 - SQLite remains the source of truth.
 - Gemini has no direct database access.
+- Expanded Local Intent Router.
+- Confidence / Escalation Gateway.
 
 ## Current Gemini integration
 
@@ -537,6 +539,8 @@ Expanded Intent Router + confidence policy.
 ## Phase C
 
 Centralized Query Service.
+
+Status: in development as 0.10.10.
 
 ## Phase D
 

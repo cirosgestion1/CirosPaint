@@ -4,13 +4,15 @@
 
 ## Estado actual
 
-Versión más reciente validada: **Ciros Paint 0.10.8**
+Versión más reciente validada: **Ciros Paint 0.10.9**
 
 Rama de verificación utilizada: `build/verify-0.10.8`
 
 La familia 0.10 amplía la base consolidada de 0.9 con análisis de pinturas en Favoritos y Ciros Assistant. 0.10.8 refuerza la arquitectura **local-first** con resolución local de entidades, workflows guiados, autocompletado contextual y fallback acotado a Gemini para nombres que no pueden resolverse localmente con seguridad.
 
-Desarrollo actual en la rama `feature/local-intent-confidence-gateway`: **0.10.9 no validada todavía por CI**. Añade un router explícito de intents locales y una política central de confianza/escalado. La validación local reconstruye correctamente la cadena histórica, ejecuta 137 tests y supera el smoke test PySide6. La versión publicada y validada continúa siendo 0.10.8 hasta completar CI y build Windows.
+0.10.9 fue validada por GitHub Actions run `32489725696` con 137 tests, smoke PySide6, PyInstaller y artefacto Windows correctos.
+
+Desarrollo actual en `feature/centralized-query-service`: **0.10.10**, con una fachada central read-only sobre repositories/SQLite y catálogos. No cambia mutaciones ni esquema de base de datos.
 
 ## Validación automática final de 0.10.8
 

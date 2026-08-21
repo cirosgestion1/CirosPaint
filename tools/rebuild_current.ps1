@@ -149,11 +149,12 @@ try {
     Invoke-Checked python (Join-Path $repositoryRoot "patches/v0.10.8/apply_v0108.py") $stagingPath
 
     Copy-VersionOverlay "0.10.9"
+    Copy-VersionOverlay "0.10.10"
 
     Remove-Item -LiteralPath $archivePath -Recurse -Force
 
     $checks = @{
-        "app/core/config.py" = 'APP_VERSION = "0.10.9"'
+        "app/core/config.py" = 'APP_VERSION = "0.10.10"'
         "requirements.txt" = "google-genai>=2.3,<3"
         "app/services/assistant_entity_resolver.py" = "LocalEntityResolver"
         "app/services/assistant_workflow_service.py" = "AssistantWorkflowEngine"
@@ -161,6 +162,7 @@ try {
         "app/services/assistant_local_service.py" = "Cambiar otra miniatura"
         "app/services/assistant_intent_router.py" = "AssistantLocalIntentRouter"
         "app/services/assistant_confidence_gateway.py" = "ConfidenceEscalationGateway"
+        "app/services/query_service.py" = "CentralizedQueryService"
         "app/ui/pages/assistant_page.py" = "owned_only=True"
         "app/ui/pages/settings_page.py" = "Requests Gemini del"
     }
@@ -174,7 +176,7 @@ try {
             throw "Verification marker missing in $($entry.Key): $($entry.Value)"
         }
     }
-    Write-Host "Ciros Paint 0.10.9 source reconstruction verified"
+    Write-Host "Ciros Paint 0.10.10 source reconstruction verified"
 
     if (Test-Path -LiteralPath $destinationPath) {
         Move-Item -LiteralPath $destinationPath -Destination $backupPath
@@ -192,7 +194,7 @@ try {
         Remove-Item -LiteralPath $backupPath -Recurse -Force
     }
 
-    Write-Host "Rebuilt Ciros Paint 0.10.9 source at $destinationPath"
+    Write-Host "Rebuilt Ciros Paint 0.10.10 source at $destinationPath"
 } finally {
     if (-not $published -and (Test-Path -LiteralPath $stagingPath)) {
         Remove-Item -LiteralPath $stagingPath -Recurse -Force
