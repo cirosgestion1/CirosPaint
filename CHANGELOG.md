@@ -2,6 +2,28 @@
 
 Este archivo resume la evolución reciente del proyecto. El repositorio conserva además los overlays/parches históricos utilizados para reconstruir cada versión.
 
+## 0.10.9 - En desarrollo
+
+Primera fase funcional del siguiente bloque local-first, construida sobre la versión validada 0.10.8.
+
+### Añadido
+
+- `AssistantLocalIntentRouter`, con clasificación y despacho explícitos para búsquedas/stock de pinturas, pinturas agotadas o por color, Futuras compras, miniaturas y cambios de estado.
+- `ConfidenceEscalationGateway`, con una política común para coincidencia exacta, normalizada, fuzzy segura, selección ambigua y escalado solo cuando la resolución local es insuficiente.
+- Tests de caracterización que prueban operaciones deterministas sin API key ni incremento del contador Gemini y bloquean mutaciones ambiguas.
+
+### Corregido
+
+- `Buscar pintura: Gris` se resuelve mediante búsqueda local y deja de caer innecesariamente en Gemini.
+- Las consultas explícitas de unidades de pintura tienen precedencia sobre el patrón genérico de conteo de miniaturas.
+
+### Validación local
+
+- Reconstrucción reproducible completa hasta 0.10.9: **OK**.
+- **137 tests: OK**.
+- Smoke test PySide6 offscreen: **OK**.
+- Sin cambios de esquema ni migraciones de base de datos.
+
 ## 0.10.8 - 21/08/2026
 
 Refuerzo de la arquitectura local-first de Ciros Assistant para automatizar más operaciones sin Gemini.

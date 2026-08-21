@@ -18,6 +18,8 @@ Validación automática de 0.10.8:
 - `google-genai` 2.19.0.
 - Catálogo generado: **2511 pinturas** con metadatos Lab.
 
+Desarrollo 0.10.9: incorpora `AssistantLocalIntentRouter` y `ConfidenceEscalationGateway`. La versión validada sigue siendo 0.10.8 hasta que el nuevo overlay complete CI y build Windows.
+
 ## Funcionalidades principales
 
 ### Pinturas
@@ -84,6 +86,8 @@ Entre las operaciones cubiertas localmente se incluyen:
 Cuando la consulta requiere razonamiento o lenguaje abierto, Gemini se utiliza como fallback.
 
 0.10.8 añade `LocalEntityResolver` para normalización y resolución exacta/fuzzy con control de confianza, y `AssistantWorkflowEngine` para flujos guiados deterministas. Al cambiar el estado de una miniatura, el autocompletado se limita a unidades que el usuario posee; al añadir miniaturas se consulta el catálogo completo. Si un nombre no puede resolverse localmente con seguridad, Gemini puede interpretarlo entre candidatos reales y el resultado se valida de nuevo contra el catálogo o la colección local.
+
+En 0.10.9, `AssistantLocalIntentRouter` extrae del servicio la clasificación de las intenciones deterministas existentes. `ConfidenceEscalationGateway` formaliza una única decisión entre aceptar una coincidencia exacta/normalizada/fuzzy segura, pedir selección ante ambigüedad o permitir Gemini cuando el caso queda realmente sin resolver. Una selección ambigua nunca autoriza una mutación.
 
 ### Gemini
 
@@ -177,7 +181,7 @@ El repositorio conserva una cadena histórica de fuente base + overlays/parches.
 Para 0.10.8 la secuencia relevante termina en:
 
 ```text
-0.9 -> 0.10.1 -> 0.10.2 -> 0.10.3 -> 0.10.4 -> 0.10.5 -> 0.10.6 -> 0.10.7 -> 0.10.8
+0.9 -> 0.10.1 -> 0.10.2 -> 0.10.3 -> 0.10.4 -> 0.10.5 -> 0.10.6 -> 0.10.7 -> 0.10.8 -> 0.10.9
 ```
 
 La reconstrucción se centraliza en `tools/rebuild_current.ps1`, que valida los hashes históricos, aplica la cadena completa en un directorio temporal y publica `build_source/` solo después de verificar la versión final. El script no instala dependencias, no descarga catálogos/assets y no ejecuta PyInstaller.

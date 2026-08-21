@@ -3,10 +3,10 @@ name: Build Windows EXE
 on:
   workflow_dispatch:
   push:
-    branches: [build/verify-0.10.8]
+    branches: [build/verify-0.10.9]
   pull_request:
     branches: [main]
 
 jobs:
   build:
-    uses: ./.github/workflows/build-windows-0108.yml
+    uses: ./.github/workflows/build-windows-0109.yml

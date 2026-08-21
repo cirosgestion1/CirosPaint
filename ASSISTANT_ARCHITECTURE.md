@@ -1,6 +1,6 @@
 # Ciros Assistant - Arquitectura
 
-Documento técnico de referencia para Ciros Assistant en **Ciros Paint 0.10.8**.
+Documento técnico de referencia para Ciros Assistant. **0.10.8** continúa siendo la versión validada; **0.10.9** está en desarrollo y añade routing local explícito y una política formal de confianza/escalado.
 
 ## Objetivo
 
@@ -8,7 +8,7 @@ Ciros Assistant sigue un diseño **local-first**. Ciros Paint intenta resolver p
 
 La IA no recibe acceso SQL, ORM ni acceso directo al archivo SQLite.
 
-## Flujo general 0.10.8
+## Flujo general 0.10.9 (en desarrollo)
 
 ```text
 Usuario
@@ -16,15 +16,19 @@ Usuario
   v
 AssistantPage (PySide6)
   |
+  +--> AssistantLocalIntentRouter
+  |       |
+  |       v
   +--> AssistantLocalService
   |       |
-  |       +--> resolución determinista
+  |       +--> LocalEntityResolver
   |       |       |
   |       |       v
-  |       |   Repositories / SQLite
+  |       |   ConfidenceEscalationGateway
   |       |       |
-  |       |       v
-  |       |   respuesta local · 0 tokens Gemini
+  |       |       +--> aceptar localmente -> Repositories / SQLite -> 0 Gemini
+  |       |       +--> ambigua -> pedir selección; no mutar
+  |       |       +--> no resuelta -> permitir fallback Gemini
   |       |
   |       +--> no resoluble localmente
   |
@@ -52,6 +56,8 @@ GeminiAssistantService
 ```
 
 Para miniaturas, la capa local es prioritaria. Si hace falta interpretar un nombre que no puede resolverse con seguridad de forma determinista, existe una resolución específica mediante Gemini **sin exponer tools**.
+
+`AssistantPage` ejecuta la decisión resultante y presenta la respuesta, pero ya no define la política de confianza. `AssistantLocalService` conserva las operaciones y adaptadores existentes; el router no duplica acceso a repositories ni lógica de base de datos.
 
 ## Proveedor
 
@@ -95,6 +101,21 @@ Cuando una operación se resuelve localmente, la UI puede mostrar `Consulta loca
 `LocalEntityResolver` normaliza texto y clasifica coincidencias exactas, parciales y aproximadas. Solo acepta automáticamente una entidad cuando la confianza y la separación respecto al siguiente candidato son suficientes. Las coincidencias ambiguas no autorizan mutaciones.
 
 Para pinturas y miniaturas, la capa local intenta resolver primero el nombre. Si no puede hacerlo con seguridad, Gemini puede interpretar exclusivamente el nombre entre candidatos reales. La selección externa se valida después contra el catálogo o la colección local antes de ejecutar cualquier operación.
+
+### Router local y gateway de confianza
+
+`AssistantLocalIntentRouter` reconoce y despacha las intenciones deterministas ya soportadas: búsqueda y stock de pinturas, pinturas agotadas o por color, Futuras compras, consulta/adición de miniaturas y cambios de estado. Por ejemplo, `Buscar pintura: Gris` se dirige directamente a la búsqueda local.
+
+`ConfidenceEscalationGateway` aplica la misma política a pinturas y miniaturas:
+
+1. coincidencia exacta local: aceptar;
+2. coincidencia normalizada: aceptar;
+3. coincidencia fuzzy de alta confianza: aceptar;
+4. varios candidatos plausibles: pedir selección y no mutar;
+5. resolución local insuficiente con candidatos reales: permitir Gemini;
+6. sin candidatos: rechazar localmente sin inventar entidades.
+
+Esta fase no incorpora Query Service, Command Bus, Event/Rules Engine, OCR ni reconocimiento de imagen.
 
 ### Workflows guiados
 
