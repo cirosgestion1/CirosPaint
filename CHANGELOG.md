@@ -4,6 +4,13 @@ Este archivo resume la evolución reciente del proyecto. El repositorio conserva
 
 ## 0.10.10 - En desarrollo
 
+### Corregido
+
+- Las burbujas de usuario/asistente y los listados estructurados calculan su altura según el ancho y muestran el contenido completo.
+- Las consultas de inventario por nombre o color se enrutan localmente con normalización singular/plural basada en los colores reales del catálogo/SQLite.
+- El contexto local conserva candidatos o una pintura activa por ID para continuaciones seguras y acciones rápidas sin Gemini.
+- El cambio de estado de miniaturas usa un selector de cantidad validado cuyos botones respetan los límites reales disponibles.
+
 ### Añadido
 
 - `CentralizedQueryService`, fachada read-only sobre los repositories y catálogos existentes.
@@ -21,6 +28,7 @@ Este archivo resume la evolución reciente del proyecto. El repositorio conserva
 
 - Reconstrucción completa 0.10.10: **OK**.
 - Sin cambios de esquema ni migraciones.
+- Pruebas focalizadas de estabilización del asistente: **20 tests OK**.
 
 ## 0.10.9 - 21/08/2026
 

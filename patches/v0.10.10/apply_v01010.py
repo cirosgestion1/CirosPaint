@@ -44,6 +44,8 @@ def main(root: Path) -> None:
     update(root, "app/repositories/miniature_repository.py", miniature_repository)
 
     def paint_service(text: str) -> str:
+        if "def set_paint_quantity_by_id(" in text:
+            return text
         text = replace_once(text, "from app.services.paint_catalog_service import PaintCatalogService, infer_color_tags\n",
                             "from app.services.paint_catalog_service import PaintCatalogService, infer_color_tags\nfrom app.services.query_service import CentralizedQueryService\n",
                             "paint query import")
@@ -77,6 +79,8 @@ def main(root: Path) -> None:
     update(root, "app/services/assistant_paint_service.py", paint_service)
 
     def local_service(text: str) -> str:
+        if "PaintConversationContext" in text:
+            return text
         text = replace_once(text, "from app.services.paint_catalog_service import PaintCatalogService\n",
                             "from app.services.paint_catalog_service import PaintCatalogService\n"
                             "from app.services.query_service import CentralizedQueryService, MiniatureCatalogUnit\n",
@@ -151,7 +155,12 @@ def main(root: Path) -> None:
         return text
     update(root, "app/ui/pages/miniatures_page.py", miniatures_page)
 
-    required = [root / "app/services/query_service.py", root / "tests/test_query_service_v01010.py"]
+    required = [
+        root / "app/services/query_service.py",
+        root / "app/services/assistant_conversation_context.py",
+        root / "tests/test_query_service_v01010.py",
+        root / "tests/test_assistant_regressions_v01010.py",
+    ]
     if not all(path.is_file() for path in required):
         raise RuntimeError("Missing 0.10.10 overlay files")
     print("Applied Ciros Paint 0.10.10 centralized query service")

@@ -14,6 +14,8 @@ La familia 0.10 amplía la base consolidada de 0.9 con análisis de pinturas en 
 
 Desarrollo actual en `feature/centralized-query-service`: **0.10.10**, con una fachada central read-only sobre repositories/SQLite y catálogos. No cambia mutaciones ni esquema de base de datos.
 
+La estabilización previa al merge corrige el dimensionado dinámico del chat, amplía el routing local data-driven de pinturas, añade contexto mínimo por ID para continuaciones seguras y sustituye el selector de cantidad del workflow de miniaturas por un control validado. Se mantiene 0.10.10 y no se incorpora ninguna fase posterior del roadmap.
+
 ## Validación automática final de 0.10.8
 
 GitHub Actions run: `32475688035`

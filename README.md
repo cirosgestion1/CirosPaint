@@ -91,6 +91,8 @@ En 0.10.9, `AssistantLocalIntentRouter` extrae del servicio la clasificación de
 
 0.10.10 añade `CentralizedQueryService`: `AssistantLocalService`, las tools deterministas y los listados principales de UI delegan progresivamente sus lecturas en una única capa. El servicio no escribe ni introduce SQL alternativo; usa los repositories y catálogos existentes.
 
+La estabilización de 0.10.10 mantiene además un contexto local mínimo por conversación para la pintura activa/candidatos, resuelve consultas por los colores reales del inventario sin reglas específicas y ofrece continuaciones locales seguras. Las burbujas calculan dinámicamente su altura y el selector de cantidad de miniaturas respeta los límites disponibles.
+
 ### Gemini
 
 - Modelo configurado: `gemini-3.7-flash`.

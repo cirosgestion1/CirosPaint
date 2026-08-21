@@ -58,6 +58,13 @@ class CentralizedQueryService:
     def filter_inventory_paints(self, **filters: str) -> list[object]:
         return [paint for paint in self.list_inventory_paints() if self._matches_paint(paint, **filters)]
 
+    def list_inventory_colors(self) -> list[str]:
+        values = {
+            str(getattr(paint, "primary_color", "") or "").strip()
+            for paint in self.list_inventory_paints()
+        }
+        return sorted((value for value in values if value), key=_normalize)
+
     def list_catalog_paints(self, **filters: str) -> list[object]:
         return [item for item in getattr(self.paint_catalog_service, "_items", ()) if self._matches_paint(item, **filters)]
 

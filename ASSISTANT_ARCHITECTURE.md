@@ -129,6 +129,14 @@ Esta fase no incorpora Command Bus, Event/Rules Engine, OCR ni reconocimiento de
 
 `AssistantWorkflowEngine` conserva en memoria el estado de los flujos guiados de cada conversación. Al añadir miniaturas se consulta el catálogo completo; al cambiar el estado se muestran únicamente miniaturas poseídas. Después de un cambio correcto puede iniciarse el flujo encadenado `Cambiar otra miniatura`.
 
+### Contexto local mínimo de pinturas en 0.10.10
+
+Cada conversación puede conservar en memoria el ID de una pintura resuelta o una lista estructurada de candidatos. Esto permite mostrar de nuevo los candidatos y ejecutar las operaciones ya existentes de cantidad y Futuras compras sin repetir búsquedas ni usar Gemini. Una lista ambigua nunca autoriza escrituras; una petición nueva no relacionada invalida el contexto anterior.
+
+Las consultas por color comparan variantes lingüísticas genéricas con los valores reales de `primary_color` obtenidos mediante `CentralizedQueryService`. No existen reglas específicas para nombres de pinturas o colores concretos.
+
+La UI presenta acciones rápidas solo cuando existe un ID de inventario inequívoco. `CentralizedQueryService` sigue siendo exclusivamente read-only; las escrituras reutilizan `AssistantPaintService` y los repositories existentes.
+
 ## Conversaciones
 
 `AssistantSessionStore` conserva las conversaciones únicamente en memoria.
