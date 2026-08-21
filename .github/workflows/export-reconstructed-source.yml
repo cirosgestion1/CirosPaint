@@ -3,6 +3,8 @@ name: Export reconstructed source
 on:
   push:
     branches: [build/verify-0.10.8]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
