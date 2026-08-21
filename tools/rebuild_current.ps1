@@ -148,15 +148,19 @@ try {
     Expand-ChunkedZip "patches/v0.10.8/chunks/part*.txt" 6 "CirosPaint_0.10.8_overlay.zip" "d85dc1f7c9b168890f9f03d4f5973979fbafe73ff2712fbf7428d628ce09e860"
     Invoke-Checked python (Join-Path $repositoryRoot "patches/v0.10.8/apply_v0108.py") $stagingPath
 
+    Copy-VersionOverlay "0.10.9"
+
     Remove-Item -LiteralPath $archivePath -Recurse -Force
 
     $checks = @{
-        "app/core/config.py" = 'APP_VERSION = "0.10.8"'
+        "app/core/config.py" = 'APP_VERSION = "0.10.9"'
         "requirements.txt" = "google-genai>=2.3,<3"
         "app/services/assistant_entity_resolver.py" = "LocalEntityResolver"
         "app/services/assistant_workflow_service.py" = "AssistantWorkflowEngine"
         "app/services/assistant_gemini_service.py" = "resolve_paint_name"
         "app/services/assistant_local_service.py" = "Cambiar otra miniatura"
+        "app/services/assistant_intent_router.py" = "AssistantLocalIntentRouter"
+        "app/services/assistant_confidence_gateway.py" = "ConfidenceEscalationGateway"
         "app/ui/pages/assistant_page.py" = "owned_only=True"
         "app/ui/pages/settings_page.py" = "Requests Gemini del"
     }
@@ -170,7 +174,7 @@ try {
             throw "Verification marker missing in $($entry.Key): $($entry.Value)"
         }
     }
-    Write-Host "Ciros Paint 0.10.8 source reconstruction verified"
+    Write-Host "Ciros Paint 0.10.9 source reconstruction verified"
 
     if (Test-Path -LiteralPath $destinationPath) {
         Move-Item -LiteralPath $destinationPath -Destination $backupPath
@@ -188,7 +192,7 @@ try {
         Remove-Item -LiteralPath $backupPath -Recurse -Force
     }
 
-    Write-Host "Rebuilt Ciros Paint 0.10.8 source at $destinationPath"
+    Write-Host "Rebuilt Ciros Paint 0.10.9 source at $destinationPath"
 } finally {
     if (-not $published -and (Test-Path -LiteralPath $stagingPath)) {
         Remove-Item -LiteralPath $stagingPath -Recurse -Force

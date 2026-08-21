@@ -1,4 +1,4 @@
-name: Build Windows EXE 0.10.8
+name: Build Windows EXE 0.10.9
 
 on:
   workflow_call:
@@ -13,7 +13,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Rebuild Ciros Paint 0.10.8
+      - name: Rebuild Ciros Paint 0.10.9
         shell: pwsh
         run: ./tools/rebuild_current.ps1
 
@@ -57,23 +57,23 @@ jobs:
         run: |
           $env:QT_QPA_PLATFORM = 'offscreen'
           $env:PYTHONPATH = (Get-Location).Path
-          python -c "from PySide6.QtWidgets import QApplication,QLineEdit; app=QApplication([]); from app.core.config import APP_VERSION; assert APP_VERSION=='0.10.8'; from app.ui.pages.assistant_page import AssistantPage; p=AssistantPage(); assert p.send_button.text()=='Enviar' and not p.busy; from app.ui.pages.settings_page import SettingsPage; s=SettingsPage(); assert s.gemini_api_key_input.echoMode()==QLineEdit.Password and 'Requests Gemini del día' in s.gemini_request_count.text(); from app.services.assistant_gemini_service import GeminiAssistantService; tools=GeminiAssistantService._gemini_tool_declarations(); assert len(tools)==7 and all(t['type']=='function' for t in tools); p.close(); s.close(); print('Ciros Paint 0.10.8 assistant smoke test OK')"
+          python -c "from PySide6.QtWidgets import QApplication,QLineEdit; app=QApplication([]); from app.core.config import APP_VERSION; assert APP_VERSION=='0.10.9'; from app.ui.pages.assistant_page import AssistantPage; p=AssistantPage(); assert p.send_button.text()=='Enviar' and not p.busy; from app.ui.pages.settings_page import SettingsPage; s=SettingsPage(); assert s.gemini_api_key_input.echoMode()==QLineEdit.Password and 'Requests Gemini del día' in s.gemini_request_count.text(); from app.services.assistant_intent_router import AssistantLocalIntentRouter; from app.services.assistant_confidence_gateway import ConfidenceEscalationGateway; assert AssistantLocalIntentRouter and ConfidenceEscalationGateway; from app.services.assistant_gemini_service import GeminiAssistantService; tools=GeminiAssistantService._gemini_tool_declarations(); assert len(tools)==7 and all(t['type']=='function' for t in tools); p.close(); s.close(); print('Ciros Paint 0.10.9 assistant smoke test OK')"
 
-      - name: Build CirosPaint_0.10.8.exe
+      - name: Build CirosPaint_0.10.9.exe
         shell: pwsh
         working-directory: build_source
         run: |
           python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint --collect-all google.genai --add-data "app/data/paint_catalog.json;app/data" --add-data "app/data/miniature_catalog.json;app/data" --add-data "app/assets/brands;app/assets/brands" --add-data "app/assets/miniatures;app/assets/miniatures" --add-data "app/assets/favorites;app/assets/favorites" --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "MINIATURE_ASSET_SOURCES.md;." main.py
           if (!(Test-Path 'dist/CirosPaint.exe')) { throw 'CirosPaint.exe was not generated' }
-          Move-Item 'dist/CirosPaint.exe' 'dist/CirosPaint_0.10.8.exe'
-          if (!(Test-Path 'dist/CirosPaint_0.10.8.exe')) { throw 'CirosPaint_0.10.8.exe was not generated' }
-          Get-Item dist/CirosPaint_0.10.8.exe | Format-List Name,Length,FullName
-          $exeHash = (Get-FileHash 'dist/CirosPaint_0.10.8.exe' -Algorithm SHA256).Hash.ToLower()
-          Write-Host "CirosPaint_0.10.8.exe SHA256: $exeHash"
+          Move-Item 'dist/CirosPaint.exe' 'dist/CirosPaint_0.10.9.exe'
+          if (!(Test-Path 'dist/CirosPaint_0.10.9.exe')) { throw 'CirosPaint_0.10.9.exe was not generated' }
+          Get-Item dist/CirosPaint_0.10.9.exe | Format-List Name,Length,FullName
+          $exeHash = (Get-FileHash 'dist/CirosPaint_0.10.9.exe' -Algorithm SHA256).Hash.ToLower()
+          Write-Host "CirosPaint_0.10.9.exe SHA256: $exeHash"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: CirosPaint-Windows-0.10.8
-          path: build_source/dist/CirosPaint_0.10.8.exe
+          name: CirosPaint-Windows-0.10.9
+          path: build_source/dist/CirosPaint_0.10.9.exe
           if-no-files-found: error
           retention-days: 30
