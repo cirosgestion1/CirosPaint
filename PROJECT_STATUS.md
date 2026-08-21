@@ -1,33 +1,29 @@
 # Ciros Paint - Project Status
 
-Última actualización: **20/08/2026**
+Última actualización: **21/08/2026**
 
 ## Estado actual
 
-Versión más reciente validada: **Ciros Paint 0.10.7**
+Versión más reciente validada: **Ciros Paint 0.10.8**
 
-Rama de verificación utilizada: `build/verify-0.10.7`
+Rama de verificación utilizada: `build/verify-0.10.8`
 
-PR principal de integración: **#26 - Verify Ciros Paint 0.10.7 local-first assistant**
+La familia 0.10 amplía la base consolidada de 0.9 con análisis de pinturas en Favoritos y Ciros Assistant. 0.10.8 refuerza la arquitectura **local-first** con resolución local de entidades, workflows guiados, autocompletado contextual y fallback acotado a Gemini para nombres que no pueden resolverse localmente con seguridad.
 
-Merge en `main`: `3c26b32663699367a180dd10142b33a2925e8ff3`
+## Validación automática final de 0.10.8
 
-La familia 0.10 amplía la base consolidada de 0.9 con análisis de pinturas en Favoritos y Ciros Assistant. La 0.10.7 cambia el asistente a una arquitectura **local-first**: las operaciones deterministas se resuelven dentro de Ciros Paint sin gastar tokens y Gemini queda como capa de interpretación/generación cuando realmente es necesario.
-
-## Validación automática final de 0.10.7
-
-GitHub Actions run: `32397932655` (#230)
+GitHub Actions run: `32475688035`
 
 Resultado: **SUCCESS**
 
 Validado:
 
-- reconstrucción completa desde la fuente histórica hasta 0.10.7;
-- overlay 0.10.7 reconstruido desde nueve fragmentos y validado por SHA-256;
+- reconstrucción completa desde la fuente histórica hasta 0.10.8;
+- overlays 0.10.7 y 0.10.8 reconstruidos y validados por SHA-256;
 - instalación del SDK oficial `google-genai`;
 - disponibilidad de Interactions API;
 - catálogos y assets;
-- **115 tests**, todos OK;
+- **128 tests**, todos OK;
 - smoke test funcional del asistente, OK;
 - build PyInstaller Windows, OK;
 - subida del artefacto, OK.
@@ -41,39 +37,31 @@ Entorno de CI validado:
 - SQLAlchemy 2.0.52;
 - `google-genai` 2.19.0.
 
-## Build 0.10.7
+## Build 0.10.8
 
-Overlay reconstruido: `CirosPaint_0.10.7_overlay.zip`
+Overlay reconstruido: `CirosPaint_0.10.8_overlay.zip`
 
 SHA-256 overlay:
 
-`062ae2b06e881f1d243b3ae7a4cbe150d889b46fb938f98735bd45c2def89f1b`
+`d85dc1f7c9b168890f9f03d4f5973979fbafe73ff2712fbf7428d628ce09e860`
 
-Artefacto: `CirosPaint-Windows-0.10.7`
+Artefacto: `CirosPaint-Windows-0.10.8`
 
-Artifact ID: `9417510361`
+Artifact ID: `9444337506`
 
-Ejecutable: `CirosPaint_0.10.7.exe`
+Ejecutable: `CirosPaint_0.10.8.exe`
 
-Tamaño EXE: `244382691` bytes
+Tamaño EXE: `244399034` bytes
 
 SHA-256 EXE:
 
-`ba333211e9684efd4ffb0a03175aeeb55afd152d32e7e4aef1cbae7d98a2f50e`
+`39f2bf097cf252cf94740428ee5b4d4f589b0bf487d42236bc3396ef22d6be38`
 
-Tamaño ZIP del artefacto: `242991446` bytes
-
-SHA-256 ZIP GitHub Actions:
-
-`90e4e9b2d4b66f4e4debd69bc162d79f3e1593fb48287080ceae9e4d8ecf9a1f`
-
-Caducidad inicial del artefacto: **19/09/2026**.
-
-El EXE se volvió a extraer del artefacto descargado y se verificó de forma independiente: tamaño y SHA-256 coinciden con los registrados por la CI.
+La CI verificó el ejecutable y publicó el artefacto Windows de 0.10.8.
 
 ## Catálogos y assets
 
-Build 0.10.7:
+Build 0.10.8:
 
 - catálogo de pinturas generado: **2511 pinturas**;
 - todas las pinturas del catálogo validado incluyen metadatos Lab;
@@ -112,7 +100,7 @@ Estados disponibles:
 - Pintado
 - Terminado
 
-Ciros Assistant 0.10.7 puede consultar y modificar operaciones compatibles de la colección mediante la capa local, preservando los contadores de estado.
+Ciros Assistant 0.10.8 puede consultar y modificar operaciones compatibles de la colección mediante la capa local, preservando los contadores de estado.
 
 ### Buscador de tutoriales
 
@@ -194,11 +182,24 @@ Optimización local-first y ampliación de Ciros Assistant:
 - mejor tratamiento de cuota 429 y reintentos;
 - Markdown, mensajes largos completos y mejoras de imágenes en el chat.
 
+### 0.10.8
+
+Refuerzo de la resolución y los workflows locales:
+
+- `LocalEntityResolver` con normalización, fuzzy matching y control de confianza;
+- `AssistantWorkflowEngine` para flujos guiados deterministas por conversación;
+- catálogo completo al añadir miniaturas y colección poseída al cambiar estados;
+- acción encadenada `Cambiar otra miniatura`;
+- fallback automático a Gemini únicamente para interpretar nombres no resueltos;
+- validación posterior del resultado contra entidades locales reales;
+- contador diario persistente de requests reales a Gemini;
+- compatibilidad con los contadores reales de estados de miniaturas.
+
 ## Ciros Assistant - reglas de arquitectura
 
 La IA no tiene acceso directo a la base de datos.
 
-Flujo 0.10.7:
+Flujo 0.10.8:
 
 ```text
 Usuario
@@ -227,7 +228,11 @@ Las conversaciones son temporales y no se persisten entre ejecuciones.
 6. `add_paint_to_future_purchases`
 7. `list_future_paint_purchases`
 
-0.10.7 mantiene exactamente estas siete herramientas para function calling. La resolución de miniaturas no amplía indiscriminadamente ese registro: usa la capa local y, cuando hace falta interpretación adicional de un nombre, una llamada específica sin tools.
+0.10.8 mantiene exactamente estas siete herramientas para function calling. La resolución de pinturas y miniaturas intenta primero `LocalEntityResolver`; cuando hace falta interpretación adicional de un nombre, utiliza una llamada específica sin tools y valida localmente el resultado.
+
+## Reconstrucción de la fuente actual
+
+`tools/rebuild_current.ps1` reconstruye la cadena histórica completa hasta 0.10.8 en un staging temporal, valida todos los hashes publicados y solo entonces publica `build_source/`. Los ZIP derivados permanecen en el staging y no se escriben en `source/` ni `patches/`. Dependencias, catálogos, assets, tests y PyInstaller continúan como fases separadas del workflow de GitHub Actions.
 
 ## Persistencia de datos
 

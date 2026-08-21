@@ -4,14 +4,14 @@ Aplicación de escritorio **local-first para Windows** destinada a gestionar pin
 
 ## Estado actual
 
-**Última versión validada: Ciros Paint 0.10.7** — 20/08/2026.
+**Última versión validada: Ciros Paint 0.10.8** — 21/08/2026.
 
 La familia 0.10 incorpora análisis de pinturas en favoritos y Ciros Assistant. Desde 0.10.7 el asistente utiliza una arquitectura **local-first**: las consultas y operaciones deterministas se intentan resolver dentro de Ciros Paint sin consumir Gemini, y el proveedor se utiliza como fallback cuando hace falta interpretación o generación.
 
-Validación automática de 0.10.7:
+Validación automática de 0.10.8:
 
-- GitHub Actions run `32397932655`: **SUCCESS**.
-- **115 tests: OK**.
+- GitHub Actions run `32475688035`: **SUCCESS**.
+- **128 tests: OK**.
 - Smoke test funcional del asistente: **OK**.
 - Python 3.12.10.
 - PyInstaller 6.22.2.
@@ -44,7 +44,7 @@ Validación automática de 0.10.7:
 - Estados: Sin montar, Montado, Pintado y Terminado.
 - Catálogo local de unidades y facciones.
 - Imágenes oficiales/locales incluidas cuando están disponibles.
-- Ciros Assistant 0.10.7 puede consultar y actualizar operaciones compatibles de la colección mediante la capa local.
+- Ciros Assistant 0.10.8 puede consultar y actualizar operaciones compatibles de la colección mediante la capa local.
 
 ### Buscador de tutoriales
 
@@ -69,7 +69,7 @@ Validación automática de 0.10.7:
 
 Ciros Assistant es un asistente especializado en pintura de miniaturas y modelismo.
 
-### Local-first en 0.10.7
+### Local-first en 0.10.8
 
 Antes de llamar a Gemini, Ciros Paint intenta resolver localmente las operaciones compatibles. Esto permite responder con **0 tokens Gemini** en consultas deterministas y mantiene la base de datos local como fuente de verdad.
 
@@ -83,6 +83,8 @@ Entre las operaciones cubiertas localmente se incluyen:
 
 Cuando la consulta requiere razonamiento o lenguaje abierto, Gemini se utiliza como fallback.
 
+0.10.8 añade `LocalEntityResolver` para normalización y resolución exacta/fuzzy con control de confianza, y `AssistantWorkflowEngine` para flujos guiados deterministas. Al cambiar el estado de una miniatura, el autocompletado se limita a unidades que el usuario posee; al añadir miniaturas se consulta el catálogo completo. Si un nombre no puede resolverse localmente con seguridad, Gemini puede interpretarlo entre candidatos reales y el resultado se valida de nuevo contra el catálogo o la colección local.
+
 ### Gemini
 
 - Modelo configurado: `gemini-3.7-flash`.
@@ -93,6 +95,7 @@ Cuando la consulta requiere razonamiento o lenguaje abierto, Gemini se utiliza c
 - Consultas generales sin tools cuando no hacen falta.
 - Function calling restringido a las siete herramientas controladas de pinturas cuando corresponde.
 - Métricas de tokens mostradas en la UI cuando el proveedor las devuelve.
+- Contador diario persistente de requests reales a Gemini, con reinicio según el día de cuota del proveedor.
 - Tratamiento específico de autenticación, red, timeout, 429 y 503.
 
 ### Interfaz del asistente
@@ -157,27 +160,27 @@ Actualizar el ejecutable no debe sustituir ni borrar el inventario local.
 
 La build validada se genera mediante GitHub Actions sobre Windows Server 2025 con Python 3.12 y PyInstaller en modo `--windowed --onefile`.
 
-Build 0.10.7:
+Build 0.10.8:
 
-- Workflow run: `32397932655` (#230).
-- Artefacto: `CirosPaint-Windows-0.10.7`.
-- Artifact ID: `9417510361`.
-- Ejecutable: `CirosPaint_0.10.7.exe`.
-- Tamaño EXE: `244382691` bytes.
-- SHA-256 EXE: `ba333211e9684efd4ffb0a03175aeeb55afd152d32e7e4aef1cbae7d98a2f50e`.
-- Tamaño ZIP: `242991446` bytes.
-- SHA-256 ZIP: `90e4e9b2d4b66f4e4debd69bc162d79f3e1593fb48287080ceae9e4d8ecf9a1f`.
-- SHA-256 overlay 0.10.7: `062ae2b06e881f1d243b3ae7a4cbe150d889b46fb938f98735bd45c2def89f1b`.
+- Workflow run: `32475688035`.
+- Artefacto: `CirosPaint-Windows-0.10.8`.
+- Artifact ID: `9444337506`.
+- Ejecutable: `CirosPaint_0.10.8.exe`.
+- Tamaño EXE: `244399034` bytes.
+- SHA-256 EXE: `39f2bf097cf252cf94740428ee5b4d4f589b0bf487d42236bc3396ef22d6be38`.
+- SHA-256 overlay 0.10.8: `d85dc1f7c9b168890f9f03d4f5973979fbafe73ff2712fbf7428d628ce09e860`.
 
 ## Estructura de desarrollo
 
 El repositorio conserva una cadena histórica de fuente base + overlays/parches. La build reconstruye de forma determinista las versiones anteriores y aplica los overlays hasta llegar a la versión actual.
 
-Para 0.10.7 la secuencia relevante termina en:
+Para 0.10.8 la secuencia relevante termina en:
 
 ```text
-0.9 -> 0.10.1 -> 0.10.2 -> 0.10.3 -> 0.10.4 -> 0.10.5 -> 0.10.6 -> 0.10.7
+0.9 -> 0.10.1 -> 0.10.2 -> 0.10.3 -> 0.10.4 -> 0.10.5 -> 0.10.6 -> 0.10.7 -> 0.10.8
 ```
+
+La reconstrucción se centraliza en `tools/rebuild_current.ps1`, que valida los hashes históricos, aplica la cadena completa en un directorio temporal y publica `build_source/` solo después de verificar la versión final. El script no instala dependencias, no descarga catálogos/assets y no ejecuta PyInstaller.
 
 ## Documentación
 

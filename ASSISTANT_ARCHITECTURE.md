@@ -1,6 +1,6 @@
 # Ciros Assistant - Arquitectura
 
-Documento técnico de referencia para Ciros Assistant en **Ciros Paint 0.10.7**.
+Documento técnico de referencia para Ciros Assistant en **Ciros Paint 0.10.8**.
 
 ## Objetivo
 
@@ -8,7 +8,7 @@ Ciros Assistant sigue un diseño **local-first**. Ciros Paint intenta resolver p
 
 La IA no recibe acceso SQL, ORM ni acceso directo al archivo SQLite.
 
-## Flujo general 0.10.7
+## Flujo general 0.10.8
 
 ```text
 Usuario
@@ -55,7 +55,7 @@ Para miniaturas, la capa local es prioritaria. Si hace falta interpretar un nomb
 
 ## Proveedor
 
-Versión 0.10.7:
+Versión 0.10.8:
 
 - SDK: `google-genai>=2.3,<3`.
 - SDK resuelto en la build validada: `2.19.0`.
@@ -90,6 +90,16 @@ Incluye operaciones compatibles sobre:
 
 Cuando una operación se resuelve localmente, la UI puede mostrar `Consulta local · 0 tokens Gemini`.
 
+### Resolución local de entidades
+
+`LocalEntityResolver` normaliza texto y clasifica coincidencias exactas, parciales y aproximadas. Solo acepta automáticamente una entidad cuando la confianza y la separación respecto al siguiente candidato son suficientes. Las coincidencias ambiguas no autorizan mutaciones.
+
+Para pinturas y miniaturas, la capa local intenta resolver primero el nombre. Si no puede hacerlo con seguridad, Gemini puede interpretar exclusivamente el nombre entre candidatos reales. La selección externa se valida después contra el catálogo o la colección local antes de ejecutar cualquier operación.
+
+### Workflows guiados
+
+`AssistantWorkflowEngine` conserva en memoria el estado de los flujos guiados de cada conversación. Al añadir miniaturas se consulta el catálogo completo; al cambiar el estado se muestran únicamente miniaturas poseídas. Después de un cambio correcto puede iniciarse el flujo encadenado `Cambiar otra miniatura`.
+
 ## Conversaciones
 
 `AssistantSessionStore` conserva las conversaciones únicamente en memoria.
@@ -109,7 +119,7 @@ No se guarda historial conversacional en:
 
 Cerrar Ciros Paint elimina el contexto conversacional.
 
-0.10.7 limita además el historial enviado de vuelta a Gemini a los turnos recientes necesarios para reducir tokens de entrada.
+0.10.8 limita además el historial enviado de vuelta a Gemini a los turnos recientes necesarios para reducir tokens de entrada.
 
 ## Herramientas controladas de pinturas
 
@@ -170,7 +180,7 @@ La UI o Gemini no deben afirmar que un cambio se ha realizado hasta que el servi
 
 ## Consumo de tokens
 
-0.10.7 introduce dos medidas complementarias:
+0.10.8 utiliza dos medidas complementarias:
 
 1. evitar Gemini cuando la operación es determinista;
 2. reducir el coste de las llamadas inevitables mediante `thinking_level="low"`, menos tools y menor historial.
@@ -178,6 +188,8 @@ La UI o Gemini no deben afirmar que un cambio se ha realizado hasta que el servi
 Cuando la Interactions API devuelve métricas de uso, Ciros Paint registra y muestra datos como tokens de entrada/salida en la interfaz del asistente.
 
 Las consultas locales no estiman falsamente tokens: se identifican explícitamente como **0 tokens Gemini** porque no realizan una llamada al proveedor.
+
+`AssistantSettingsStore` mantiene además un contador diario persistente de requests reales. El contador se incrementa en el punto común que crea una interacción con Gemini, incluidas comprobaciones de conexión y resoluciones acotadas de nombres, y se reinicia según el día de cuota del proveedor. No contabiliza operaciones locales ni estimaciones.
 
 ## Imágenes
 
@@ -193,7 +205,7 @@ Otros formatos legibles por Qt pueden convertirse a JPEG antes del envío.
 
 Las imágenes grandes pueden escalarse/comprimirse para mantener la petición por debajo del margen definido para datos inline.
 
-La interfaz 0.10.7 mejora la representación visual de adjuntos. No se guarda una copia persistente de la imagen dentro del sistema conversacional.
+La interfaz 0.10.8 mantiene la representación visual de adjuntos. No se guarda una copia persistente de la imagen dentro del sistema conversacional.
 
 ## Asincronía
 
@@ -221,7 +233,7 @@ Casos principales:
 - red/DNS/conectividad;
 - respuesta vacía o flujo de herramientas excesivo.
 
-0.10.7 mejora el mensaje de cuota y conserva información de reintento cuando el proveedor la ofrece.
+0.10.8 mantiene el mensaje de cuota y conserva información de reintento cuando el proveedor la ofrece.
 
 ## Configuración de API Key
 
@@ -254,24 +266,21 @@ Ciros Assistant está especializado en:
 - inventario de pinturas y compras asociadas;
 - colección y estados de miniaturas compatibles con Ciros Paint.
 
-## Tests 0.10.7
+## Tests 0.10.8
 
-La CI final ejecutó **115 tests**, todos OK. Entre las comprobaciones específicas de 0.10.7 están:
+La CI final ejecutó **128 tests**, todos OK. Además de las comprobaciones heredadas de 0.10.7, 0.10.8 valida:
 
-- conexión Gemini con `thinking_level="low"`;
-- consulta general sin tools y razonamiento bajo;
-- historial reducido a turnos recientes;
-- operaciones de pinturas que mantienen function calling controlado;
-- resolvedor de miniaturas con llamada sin tools;
-- tratamiento de cuota/retry;
-- operaciones locales de miniaturas y sus contadores;
-- parser local de actualizaciones;
-- consultas locales sin API Key de Gemini;
-- métricas de uso visibles cuando se utiliza IA;
-- Markdown y mensajes largos completos.
+- resolución local fuzzy con confianza y rechazo de coincidencias inseguras;
+- workflows deterministas reiniciables;
+- autocompletado limitado a miniaturas poseídas al cambiar estado;
+- compatibilidad con los contadores reales de estados;
+- fallback de nombres de pinturas mediante una interacción sin tools;
+- validación del contador diario persistente de requests Gemini;
+- acción encadenada `Cambiar otra miniatura`;
+- mantenimiento de exactamente siete tools de pinturas.
 
 Smoke test funcional: **OK**.
 
 Build Windows: **OK**.
 
-La validación manual se documenta en `MANUAL_TESTS_0.10.7.md` y los datos exactos de la compilación en `BUILD_VERIFY_0.10.7.md`.
+Las baterías manuales y verificaciones históricas de 0.10.6 y 0.10.7 permanecen en el repositorio. Los datos finales de validación de 0.10.8 se registran en `CHANGELOG.md`.

@@ -29,6 +29,13 @@ Refuerzo de la arquitectura local-first de Ciros Assistant para automatizar más
 - SHA-256 EXE: `39f2bf097cf252cf94740428ee5b4d4f589b0bf487d42236bc3396ef22d6be38`.
 - Artefacto: `CirosPaint-Windows-0.10.8`, ID `9444337506`.
 
+### Infraestructura de reconstrucción
+
+- Reconstrucción histórica centralizada en `tools/rebuild_current.ps1`.
+- Los overlays se aplican primero en staging y `build_source/` solo se reemplaza de forma segura con `-Force`.
+- Los ZIP derivados se generan temporalmente sin modificar `source/` ni `patches/`.
+- Los workflows de Windows reutilizan el script y mantienen dependencias, catálogos, assets, tests, smoke test, PyInstaller y artefactos como fases separadas.
+
 ## 0.10.7 - 20/08/2026
 
 Optimización local-first de Ciros Assistant y ampliación de su integración con Ciros Paint.
