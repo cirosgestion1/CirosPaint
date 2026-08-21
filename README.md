@@ -93,6 +93,8 @@ En 0.10.9, `AssistantLocalIntentRouter` extrae del servicio la clasificación de
 
 La estabilización de 0.10.10 mantiene además un contexto local mínimo por conversación para la pintura activa/candidatos, resuelve consultas por los colores reales del inventario sin reglas específicas y ofrece continuaciones locales seguras. Las burbujas calculan dinámicamente su altura y el selector de cantidad de miniaturas respeta los límites disponibles.
 
+El routing local de 0.10.10 cubre también recuentos globales, nombres o colores aislados, consultas conversacionales de posesión y cambios naturales de estado con cantidad. La resolución sigue siendo data-driven y descarta candidatos de miniaturas sin relación suficiente antes de considerar Gemini.
+
 ### Gemini
 
 - Modelo configurado: `gemini-3.7-flash`.

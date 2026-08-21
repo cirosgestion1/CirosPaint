@@ -135,6 +135,10 @@ Cada conversación puede conservar en memoria el ID de una pintura resuelta o un
 
 Las consultas por color comparan variantes lingüísticas genéricas con los valores reales de `primary_color` obtenidos mediante `CentralizedQueryService`. No existen reglas específicas para nombres de pinturas o colores concretos.
 
+El router reconoce además recuentos globales, nombres/colores aislados y construcciones conversacionales de posesión. La entidad se separa de palabras de la frase antes de resolverla. Para miniaturas se aplica un filtro léxico data-driven previo a la confianza común, de modo que un fuzzy bajo no presenta unidades sin relación; las ambigüedades siguen sin autorizar mutaciones.
+
+Los cambios naturales de estado extraen verbo, cantidad y entidad, y reutilizan la mutación local existente. Solo se ejecutan si la miniatura poseída es inequívoca y hay unidades disponibles para la transición solicitada.
+
 La UI presenta acciones rápidas solo cuando existe un ID de inventario inequívoco. `CentralizedQueryService` sigue siendo exclusivamente read-only; las escrituras reutilizan `AssistantPaintService` y los repositories existentes.
 
 ## Conversaciones

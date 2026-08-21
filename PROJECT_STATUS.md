@@ -16,6 +16,8 @@ Desarrollo actual en `feature/centralized-query-service`: **0.10.10**, con una f
 
 La estabilización previa al merge corrige el dimensionado dinámico del chat, amplía el routing local data-driven de pinturas, añade contexto mínimo por ID para continuaciones seguras y sustituye el selector de cantidad del workflow de miniaturas por un control validado. Se mantiene 0.10.10 y no se incorpora ninguna fase posterior del roadmap.
 
+La estabilización manual posterior fija el ancho efectivo antes de calcular la altura de las burbujas, incorpora recuentos globales y términos aislados al routing local, limpia sufijos conversacionales y endurece la relevancia fuzzy de miniaturas. También admite cambios naturales de estado cuando estado, cantidad, entidad y disponibilidad se resuelven localmente sin ambigüedad.
+
 ## Validación automática final de 0.10.8
 
 GitHub Actions run: `32475688035`

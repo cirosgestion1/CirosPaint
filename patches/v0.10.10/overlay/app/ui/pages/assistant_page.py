@@ -186,6 +186,20 @@ class AssistantMessageBubble(QFrame):
             return current_layout.heightForWidth(width)
         return self.sizeHint().height()
 
+    def set_available_width(self, available_width: int) -> None:
+        """Give Qt a concrete width before deriving wrapped content height."""
+        width = max(220, min(800, int(available_width * 0.92)))
+        self.setFixedWidth(width)
+        margins = self.layout().contentsMargins()
+        content_width = max(1, width - margins.left() - margins.right())
+        if isinstance(self.text_label, WrappingRichLabel):
+            self.text_label.setFixedWidth(content_width)
+            self.text_label.setMinimumHeight(self.text_label.heightForWidth(content_width))
+        self.layout().activate()
+        required_height = max(self.layout().sizeHint().height(), self.heightForWidth(width))
+        self.setMinimumHeight(required_height)
+        self.resize(width, required_height)
+
     def _add_structured_content(self, layout: QVBoxLayout, metadata: dict):
         kind = metadata.get("kind")
         data = metadata.get("data") or {}
@@ -441,10 +455,19 @@ class AssistantPage(QWidget):
         self.welcome_card.setVisible(False)
         bubble = AssistantMessageBubble(role, content, self.chat_content, image_path=image_path, metadata=metadata)
         bubble.action_requested.connect(self._quick_action)
+        bubble.set_available_width(self.chat_scroll.viewport().width() - 16)
         alignment = Qt.AlignRight if role == "user" else Qt.AlignLeft
         self.messages_layout.insertWidget(self.messages_layout.count() - 1, bubble, 0, alignment)
         if store_widget: self._message_widgets.append(bubble)
         self._scroll_to_bottom()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "chat_scroll"):
+            available = self.chat_scroll.viewport().width() - 16
+            for bubble in self._message_widgets:
+                if isinstance(bubble, AssistantMessageBubble):
+                    bubble.set_available_width(available)
 
     def _scroll_to_bottom(self):
         bar = self.chat_scroll.verticalScrollBar(); bar.setValue(bar.maximum())

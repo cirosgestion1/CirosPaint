@@ -105,11 +105,14 @@ class AssistantLocalService:
     def search_paints(self, query: str) -> LocalAssistantResult:
         return self._from_tool_result(self.paint_service.search_paints(query=query))
 
-    def search_paint_term(self, query: str) -> LocalAssistantResult:
+    def search_paint_term(self, query: str) -> LocalAssistantResult | None:
         term_forms = _linguistic_forms(query)
         colors = self.query_service.list_inventory_colors()
         matching_colors = [color for color in colors if term_forms & _linguistic_forms(color)]
-        return self.paints_by_color(matching_colors[0]) if len(matching_colors) == 1 else self.search_paints(query)
+        if len(matching_colors) == 1:
+            return self.paints_by_color(matching_colors[0])
+        result = self.search_paints(query)
+        return result if (result.data or {}).get("paints") else None
 
     def query_owned_paints(self, query: str) -> LocalAssistantResult:
         """Resolve an inventory query as a real catalog color or paint name."""
@@ -226,6 +229,21 @@ class AssistantLocalService:
         if not paints:
             return LocalAssistantResult("not_found", f"No tienes pinturas cuyo color principal sea {color}.", "paints", {"paints": []})
         return LocalAssistantResult("ok", f"Tienes {len(paints)} pinturas cuyo color principal es {color}.", "paints", {"paints": paints})
+
+    def count_owned_paints(self, query: str = "") -> LocalAssistantResult:
+        if query:
+            result = self.query_owned_paints(query)
+            if result.kind == "paints":
+                paints = list((result.data or {}).get("paints") or [])
+                result.data["paint_count"] = len(paints)
+                result.data["unit_count"] = sum(_safe_int(item.get("total_units")) for item in paints)
+            return result
+        paints = [self._paint_payload(paint) for paint in self.query_service.list_inventory_paints()]
+        units = sum(_safe_int(item.get("total_units")) for item in paints)
+        return LocalAssistantResult(
+            "ok", f"Tienes {len(paints)} pinturas en el inventario, con {units} unidades en total.",
+            "paints", {"paints": paints, "paint_count": len(paints), "unit_count": units},
+        )
 
     def show_paint_context(self) -> LocalAssistantResult:
         paints = list(self.context.candidate_paints)
@@ -395,12 +413,75 @@ class AssistantLocalService:
             exact = [candidate for candidate in candidates if needle in candidate.normalized_aliases()]
             resolution = self.entity_resolver.resolve(query, exact)
         else:
-            resolution = self.entity_resolver.resolve(query, candidates)
+            relevant = self._relevant_miniature_candidates(query, candidates)
+            resolution = self.entity_resolver.resolve(query, relevant)
         decision = self.confidence_gateway.evaluate(query, resolution, allow_gemini=True)
         if decision.accepts_local:
             unit = resolution.candidate.payload
             return unit, [unit], decision
         return None, [item.payload for item in resolution.matches], decision
+
+    def _relevant_miniature_candidates(self, query: str, candidates: list[EntityCandidate]) -> list[EntityCandidate]:
+        """Discard lexically unrelated miniatures before confidence evaluation."""
+        needle = normalize_entity_text(query)
+        if not needle:
+            return []
+        needle_tokens = {_singular_token(token) for token in needle.split()}
+        ranked_scores = {
+            candidate.key: score
+            for score, candidate in self.entity_resolver.rank(query, candidates, limit=max(1, len(candidates)))
+        }
+        relevant = []
+        for candidate in candidates:
+            aliases = candidate.normalized_aliases()
+            if needle in aliases:
+                relevant.append(candidate)
+                continue
+            token_similarity = max(
+                (SequenceMatcher(None, left, right).ratio()
+                 for alias in aliases for left in needle_tokens
+                 for right in (_singular_token(token) for token in alias.split())),
+                default=0.0,
+            )
+            score = ranked_scores.get(candidate.key, 0.0)
+            if token_similarity >= 0.72 and score >= 0.55:
+                relevant.append(candidate)
+        return relevant
+
+    def count_owned_miniatures(self) -> LocalAssistantResult:
+        entries = self.query_service.list_miniature_collection()
+        counts = {
+            status: sum(_safe_int(getattr(entry, column, 0)) for entry in entries)
+            for status, column in (
+                ("Sin montar", "unassembled_count"), ("Montado", "assembled_count"),
+                ("Pintado", "painted_count"), ("Terminado", "finished_count"),
+            )
+        }
+        total = sum(counts.values())
+        return LocalAssistantResult(
+            "ok", f"Tienes {total} miniaturas en tu colecciÃ³n.", "miniature_counts",
+            {"counts": counts, "total": total},
+        )
+
+    def query_owned_entity(self, query: str) -> LocalAssistantResult:
+        """Resolve conversational '<entity> tengo' without guessing its domain."""
+        unit, matches, decision = self.resolve_miniature_with_decision(query, inventory_only=True)
+        if unit is not None:
+            return self.miniature_counts(unit.unit_name)
+        paint = self.query_owned_paints(query)
+        if paint.status in {"ok", "ambiguous"}:
+            return paint
+        if matches:
+            return LocalAssistantResult(
+                "ambiguous" if decision.action == EscalationAction.REQUEST_SELECTION else "needs_resolution",
+                "No puedo identificar con seguridad la miniatura.", "miniature_matches",
+                {"entity_type": "miniature", "matches": [item.as_dict() for item in matches],
+                 "candidates": [item.unit_name for item in matches], "raw_name": query,
+                 "operation": "counts", "confidence_level": decision.level.value,
+                 "escalation_action": decision.action.value},
+                requires_ai_resolution=decision.should_escalate,
+            )
+        return paint
 
     def miniature_counts(self, query: str) -> LocalAssistantResult:
         unit, matches, decision = self.resolve_miniature_with_decision(query, inventory_only=True)
@@ -941,3 +1022,11 @@ def _linguistic_forms(value: Any) -> set[str]:
         elif form.endswith("o"):
             forms.add(form[:-1] + "a")
     return {form for form in forms if form}
+
+
+def _singular_token(value: str) -> str:
+    if value.endswith("es") and len(value) > 4:
+        return value[:-2]
+    if value.endswith("s") and len(value) > 3:
+        return value[:-1]
+    return value

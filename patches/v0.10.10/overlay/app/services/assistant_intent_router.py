@@ -12,10 +12,13 @@ class LocalIntent(str, Enum):
     GET_PAINT_STOCK = "get_paint_stock"
     LIST_DEPLETED_PAINTS = "list_depleted_paints"
     LIST_PAINTS_BY_COLOR = "list_paints_by_color"
+    COUNT_OWNED_PAINTS = "count_owned_paints"
     LIST_FUTURE_PURCHASES = "list_future_purchases"
     ADD_FUTURE_PURCHASE = "add_future_purchase"
     COMPLETE_PURCHASE = "complete_purchase"
     GET_MINIATURE_COUNTS = "get_miniature_counts"
+    COUNT_OWNED_MINIATURES = "count_owned_miniatures"
+    QUERY_OWNED_ENTITY = "query_owned_entity"
     ADD_MINIATURE = "add_miniature"
     CHANGE_MINIATURE_STATUS = "change_miniature_status"
     SHOW_PAINT_CONTEXT = "show_paint_context"
@@ -37,11 +40,14 @@ class LocalIntentHandler(Protocol):
     def find_paint(self, query: str): ...
     def query_owned_paints(self, query: str): ...
     def paints_by_color(self, color: str): ...
+    def count_owned_paints(self, query: str = ""): ...
     def depleted_paints(self): ...
     def list_future_paints(self): ...
     def add_future_paint(self, query: str, quantity: int = 1): ...
     def mark_paint_purchased(self, query: str, quantity: int = 1): ...
     def miniature_counts(self, query: str): ...
+    def count_owned_miniatures(self): ...
+    def query_owned_entity(self, query: str): ...
     def change_miniature_status(self, query: str, target_status: str, quantity: int): ...
     def guided_add_miniature(self): ...
     def show_paint_context(self): ...
@@ -69,10 +75,13 @@ class AssistantLocalIntentRouter:
             )(args["query"]),
             LocalIntent.LIST_DEPLETED_PAINTS: self.handler.depleted_paints,
             LocalIntent.LIST_PAINTS_BY_COLOR: lambda: self.handler.paints_by_color(args["color"]),
+            LocalIntent.COUNT_OWNED_PAINTS: lambda: self.handler.count_owned_paints(args.get("query", "")),
             LocalIntent.LIST_FUTURE_PURCHASES: self.handler.list_future_paints,
             LocalIntent.ADD_FUTURE_PURCHASE: lambda: self.handler.add_future_paint(args["query"], args["quantity"]),
             LocalIntent.COMPLETE_PURCHASE: lambda: self.handler.mark_paint_purchased(args["query"], args["quantity"]),
             LocalIntent.GET_MINIATURE_COUNTS: lambda: self.handler.miniature_counts(args["query"]),
+            LocalIntent.COUNT_OWNED_MINIATURES: lambda: self.handler.count_owned_miniatures(),
+            LocalIntent.QUERY_OWNED_ENTITY: lambda: self.handler.query_owned_entity(args["query"]),
             LocalIntent.ADD_MINIATURE: self.handler.guided_add_miniature,
             LocalIntent.CHANGE_MINIATURE_STATUS: lambda: self.handler.change_miniature_status(
                 args["query"], args["target_status"], args["quantity"]
@@ -114,6 +123,15 @@ class AssistantLocalIntentRouter:
         if "agotad" in normalized and "pintur" in normalized:
             return IntentMatch(LocalIntent.LIST_DEPLETED_PAINTS)
 
+        paint_count = re.match(
+            r"^(?:cuantas|cantidad\s+de)\s+pinturas?(?:\s+(.+?))?\s+tengo$", normalized
+        )
+        if paint_count:
+            return IntentMatch(LocalIntent.COUNT_OWNED_PAINTS, {"query": _entity(paint_count.group(1) or "")})
+
+        if re.match(r"^(?:cuantas|cantidad\s+de)\s+miniaturas?\s+tengo$", normalized):
+            return IntentMatch(LocalIntent.COUNT_OWNED_MINIATURES)
+
         if "futuras compras" in normalized or "compras futuras" in normalized:
             add_future = re.search(
                 r"(?:anade|agrega|pon)\s+(?:(\d+)\s+)?(.+?)\s+(?:a|en)\s+(?:mis\s+)?(?:futuras compras|compras futuras)",
@@ -141,7 +159,7 @@ class AssistantLocalIntentRouter:
             return IntentMatch(LocalIntent.LIST_PAINTS_BY_COLOR, {"color": _entity(explicit_color.group(1))})
 
         owned_paints = re.match(
-            r"^(?:que\s+)?(?:pinturas?\s+)?(.+?)\s+tengo$|^tengo\s+(?:(?:las?|unas?)\s+)?(?:pinturas?\s+)?(.+)$",
+            r"^(?:que\s+)?pinturas?\s+(.+?)\s+tengo$|^tengo\s+(?:(?:las?|unas?)\s+)?pinturas?\s+(.+)$",
             normalized,
         )
         if owned_paints and not re.match(r"^(?:cuantos|cuantas|cantidad)\b", normalized):
@@ -152,16 +170,16 @@ class AssistantLocalIntentRouter:
             return IntentMatch(LocalIntent.ADD_MINIATURE)
 
         state_patterns = (
-            (r"^(?:he\s+)?(?:terminado|termine)\s+(\d+)\s+(.+)$", "Terminado"),
-            (r"^(?:he\s+)?(?:pintado|pinte)\s+(\d+)\s+(.+)$", "Pintado"),
-            (r"^(?:he\s+)?(?:montado|monte)\s+(\d+)\s+(.+)$", "Montado"),
+            (r"^(?:hoy\s+)?(?:he\s+)?(?:terminado|termine)\s+(?:(\d+|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s+)?(.+)$", "Terminado"),
+            (r"^(?:hoy\s+)?(?:he\s+)?(?:pintado|pinte)\s+(?:(\d+|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s+)?(.+)$", "Pintado"),
+            (r"^(?:hoy\s+)?(?:he\s+)?(?:montado|monte)\s+(?:(\d+|un|una|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)\s+)?(.+)$", "Montado"),
         )
         for pattern, status in state_patterns:
             state = re.search(pattern, normalized)
             if state:
                 return IntentMatch(
                     LocalIntent.CHANGE_MINIATURE_STATUS,
-                    {"query": _entity(state.group(2)), "target_status": status, "quantity": int(state.group(1))},
+                    {"query": _strip_determiner(_entity(state.group(2))), "target_status": status, "quantity": _quantity(state.group(1))},
                 )
 
         stock = re.search(r"(?:cuantas?\s+unidades?\s+tengo\s+de|cuanto.*?tengo\s+de)\s+(.+)$", normalized)
@@ -177,16 +195,35 @@ class AssistantLocalIntentRouter:
             if miniature:
                 return IntentMatch(LocalIntent.GET_MINIATURE_COUNTS, {"query": _entity(miniature.group(1))})
 
+        owned_entity = re.match(r"^(.+?)\s+tengo$", normalized)
+        if owned_entity:
+            return IntentMatch(LocalIntent.QUERY_OWNED_ENTITY, {"query": _entity(owned_entity.group(1))})
+
         paint_have = re.search(r"(?:tengo|tienes|hay).*?(?:la\s+pintura\s+)?(.+)$", normalized)
         if paint_have and any(word in normalized for word in ("pintura", "tengo", "tienes")):
             query = re.sub(r"^de\s+", "", _entity(paint_have.group(1)), flags=re.IGNORECASE)
             return IntentMatch(LocalIntent.GET_PAINT_STOCK, {"query": query})
+
+        if 1 <= len(normalized.split()) <= 4 and not set(normalized.split()) & {
+            "como", "cuando", "donde", "porque", "quiero", "puedes", "hola", "ayuda"
+        }:
+            return IntentMatch(LocalIntent.SEARCH_PAINT, {"query": clean})
 
         return None
 
 
 def _entity(value: str) -> str:
     return str(value or "").strip(" ?.!:;,\t\r\n")
+
+
+def _strip_determiner(value: str) -> str:
+    return re.sub(r"^(?:un|una|unos|unas)\s+", "", value, flags=re.IGNORECASE)
+
+
+def _quantity(value: str | None) -> int:
+    words = {"un": 1, "una": 1, "uno": 1, "dos": 2, "tres": 3, "cuatro": 4,
+             "cinco": 5, "seis": 6, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10}
+    return int(value) if value and value.isdigit() else words.get(value or "", 1)
 
 
 def _normalize(value: str) -> str:

@@ -10,6 +10,10 @@ Este archivo resume la evolución reciente del proyecto. El repositorio conserva
 - Las consultas de inventario por nombre o color se enrutan localmente con normalización singular/plural basada en los colores reales del catálogo/SQLite.
 - El contexto local conserva candidatos o una pintura activa por ID para continuaciones seguras y acciones rápidas sin Gemini.
 - El cambio de estado de miniaturas usa un selector de cantidad validado cuyos botones respetan los límites reales disponibles.
+- Los recuentos globales, los colores/nombres aislados y las consultas conversacionales de posesión se resuelven localmente.
+- La extracción elimina texto conversacional y filtra candidatos fuzzy de miniaturas sin relación léxica antes de aplicar confianza.
+- Las frases naturales de montaje, pintado y terminado aceptan cantidades numéricas o palabras cuando la operación es inequívoca y viable.
+- Las burbujas fijan su ancho efectivo antes de aplicar la altura completa del contenido envuelto.
 
 ### Añadido
 

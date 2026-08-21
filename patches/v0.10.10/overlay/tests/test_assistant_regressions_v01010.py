@@ -8,9 +8,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
+from app.repositories.miniature_repository import MiniatureRepository
 from app.repositories.paint_repository import PaintRepository
 from app.services.assistant_conversation_context import PaintConversationContext
-from app.services.assistant_local_service import AssistantLocalService
+from app.services.assistant_local_service import AssistantLocalService, MiniatureUnit
 from app.services.assistant_settings_store import AssistantSettingsStore
 from app.ui.pages.assistant_page import AssistantMessageBubble, QuantityDialog
 
@@ -30,6 +31,15 @@ class AssistantPaintRegressionV01010Tests(unittest.TestCase):
         ]
         self.context = PaintConversationContext()
         self.local = AssistantLocalService(self.session, context=self.context)
+        MiniatureRepository(self.session).upsert_entry(
+            "Star Wars: Legion", "Imperio", "Scout Trooper Strike Team",
+            unassembled_count=3, assembled_count=4, painted_count=2, finished_count=1,
+        )
+        self.local._miniatures = [
+            MiniatureUnit("legion", "Star Wars: Legion", "empire", "Imperio", "scout-team", "Scout Trooper Strike Team"),
+            MiniatureUnit("legion", "Star Wars: Legion", "empire", "Imperio", "death-troopers", "Death Troopers"),
+            MiniatureUnit("legion", "Star Wars: Legion", "separatists", "Separatistas", "b1", "B1 Battle Droids"),
+        ]
 
     def tearDown(self): self.session.close(); self.engine.dispose()
 
@@ -63,6 +73,57 @@ class AssistantPaintRegressionV01010Tests(unittest.TestCase):
         self.assertEqual(self.local.try_handle_text("añadir otra").status, "ambiguous")
 
 
+    def test_manual_paint_phrases_are_all_deterministic_and_local(self):
+        cases = {
+            "cuántas pinturas tengo": 5,
+            "cuántas pinturas negras tengo": 3,
+            "gris": 1,
+            "abaddon": 2,
+            "abaddon black": 2,
+        }
+        with patch.object(AssistantSettingsStore, "increment_gemini_request_count") as gemini:
+            for request, expected in cases.items():
+                with self.subTest(request=request):
+                    result = self.local.try_handle_text(request)
+                    self.assertIsNotNone(result)
+                    self.assertFalse(result.requires_ai_resolution)
+                    self.assertEqual(len(result.data.get("paints", [])), expected)
+        gemini.assert_not_called()
+
+    def test_unrelated_short_language_remains_available_for_gemini(self):
+        self.assertIsNone(self.local.try_handle_text("qué hora es"))
+
+    def test_global_miniature_count_does_not_resolve_the_word_miniatures(self):
+        result = self.local.try_handle_text("cuántas miniaturas tengo")
+        self.assertEqual(result.status, "ok")
+        self.assertEqual(result.data["total"], 10)
+        self.assertNotIn("raw_name", result.data)
+
+    def test_conversational_suffix_is_removed_before_miniature_resolution(self):
+        result = self.local.try_handle_text("scout trooper strike team tengo?")
+        self.assertEqual(result.status, "ok")
+        self.assertEqual(result.data["unit"]["unit_name"], "Scout Trooper Strike Team")
+
+    def test_miniature_fuzzy_candidates_exclude_lexically_unrelated_units(self):
+        _unit, matches, _decision = self.local.resolve_miniature_with_decision("scout troopers", inventory_only=False)
+        self.assertTrue(matches)
+        self.assertNotIn("B1 Battle Droids", [item.unit_name for item in matches])
+
+    def test_natural_status_phrases_parse_state_quantity_and_entity_locally(self):
+        cases = (
+            ("hoy terminé un scout trooper strike team", "Terminado", 2),
+            ("pinté dos scout trooper strike teams", "Pintado", 3),
+            ("monté 3 scout trooper strike teams", "Montado", 5),
+        )
+        with patch.object(AssistantSettingsStore, "increment_gemini_request_count") as gemini:
+            for request, status, expected in cases:
+                with self.subTest(request=request):
+                    result = self.local.try_handle_text(request)
+                    self.assertEqual(result.status, "ok")
+                    self.assertEqual(result.data["counts"][status], expected)
+        gemini.assert_not_called()
+
+
 class AssistantUiRegressionV01010Tests(unittest.TestCase):
     @classmethod
     def setUpClass(cls): cls.app = QApplication.instance() or QApplication([])
@@ -78,6 +139,15 @@ class AssistantUiRegressionV01010Tests(unittest.TestCase):
         items = [{"unit": {"unit_name": f"Unidad {index}"}, "counts": {"Sin montar": 2, "Montado": 1, "Pintado": 3, "Terminado": 4}} for index in range(10)]
         bubble = AssistantMessageBubble("assistant", "Listado completo", metadata={"kind": "miniature_list", "data": {"items": items}})
         bubble.resize(420, 10); QApplication.processEvents(); self.assertGreater(bubble.heightForWidth(420), 100); bubble.close()
+
+    def test_wrapped_label_geometry_is_applied_to_the_real_bubble(self):
+        bubble = AssistantMessageBubble("assistant", "Texto largo con saltos y palabras " * 70)
+        bubble.show(); bubble.set_available_width(390); QApplication.processEvents()
+        content_width = bubble.text_label.width()
+        self.assertEqual(bubble.width(), min(800, int(390 * 0.92)))
+        self.assertGreaterEqual(bubble.text_label.height(), bubble.text_label.heightForWidth(content_width))
+        self.assertGreaterEqual(bubble.height(), bubble.layout().sizeHint().height())
+        bubble.close()
 
     def test_quantity_spinbox_step_buttons_and_manual_value_are_consistent(self):
         dialog = QuantityDialog("Cantidad", "Cantidad", 1, 1, 5)
