@@ -2,7 +2,54 @@
 
 Este archivo resume la evolución reciente del proyecto. El repositorio conserva además los overlays/parches históricos utilizados para reconstruir cada versión.
 
-## 0.10.9 - En desarrollo
+## 0.10.10 - En desarrollo
+
+### Corregido
+
+- Las burbujas de usuario/asistente y los listados estructurados calculan su altura según el ancho y muestran el contenido completo.
+- Las consultas de inventario por nombre o color se enrutan localmente con normalización singular/plural basada en los colores reales del catálogo/SQLite.
+- El contexto local conserva candidatos o una pintura activa por ID para continuaciones seguras y acciones rápidas sin Gemini.
+- El cambio de estado de miniaturas usa un selector de cantidad validado cuyos botones respetan los límites reales disponibles.
+- Los recuentos globales, los colores/nombres aislados y las consultas conversacionales de posesión se resuelven localmente.
+- La extracción elimina texto conversacional y filtra candidatos fuzzy de miniaturas sin relación léxica antes de aplicar confianza.
+- Las frases naturales de montaje, pintado y terminado aceptan cantidades numéricas o palabras cuando la operación es inequívoca y viable.
+- Las burbujas fijan su ancho efectivo antes de aplicar la altura completa del contenido envuelto.
+- Los payloads de pinturas se rehidratan desde el ID canónico, preservando siempre el mismo `swatch_hex`.
+- Las flechas del selector de cantidad se dibujan con contraste explícito sin alterar los subcontroles nativos.
+- Las consultas por facción y por estado pendiente se resuelven localmente con aliases centralizados y datos reales.
+- El parser controlado amplía variantes de estado y órdenes locales de inventario y compras de pinturas.
+- Futuras compras comparte una lectura de pinturas, reposición automática y materiales entre página y asistente.
+- Se corrige el literal UTF-8 corrupto que mostraba `colecciÃ³n`.
+- Las acciones de cada tarjeta de pintura conservan su `paint_id` y ya no dependen de la última entidad global de la conversación.
+- La compra completada reutiliza `ShoppingRepository.mark_purchased`, conserva la identidad canónica y retira la entrada futura asociada al mismo ID.
+- Los nombres aislados y errores tipográficos seguros de unidades Legion, junto con aliases estrictos de varias facciones, se resuelven localmente.
+- Se documenta y cubre la restauración de los 128 assets históricos idénticos empaquetados en los EXE validados.
+- El analizador de descripciones conserva aliases ambiguos y los resuelve con contexto de marca/gama; limpia comentarios parentéticos y reconoce abreviaturas centralizadas como `VMC` sin mezclar identificación con el umbral de alternativas.
+- La reconstrucción incorpora el catálogo validado de 2511 pinturas, los tres logos de marca y los 128 assets de miniaturas recuperados de ambos EXE 0.10.10, todos protegidos por hashes deterministas.
+- CI deja de descargar/regenerar catálogo y assets en cada build y verifica exactamente el mismo conjunto histórico que la reconstrucción local.
+
+### Añadido
+
+- `CentralizedQueryService`, fachada read-only sobre los repositories y catálogos existentes.
+- Consultas centralizadas de catálogo/inventario/stock de pinturas, Futuras compras, colección y catálogo de miniaturas.
+- Filtros de miniaturas por posesión y estado sin cambios de esquema.
+- Tests de equivalencia entre la nueva fachada y los repositories existentes.
+
+### Refactor
+
+- `AssistantPaintService` y `AssistantLocalService` delegan lecturas compatibles al Query Service.
+- Las páginas de pinturas, compras y miniaturas usan la fachada para sus listados principales.
+- El listado de Futuras compras reutiliza `entry.paint` cargado por `ShoppingRepository` y evita recargar todo el inventario.
+
+### Validación local
+
+- Reconstrucción completa 0.10.10: **OK**.
+- Sin cambios de esquema ni migraciones.
+- Pruebas focalizadas del analizador y assets: **28 tests OK**.
+- Suite completa: **195 tests OK**.
+- Smoke PySide6 offscreen y smoke GUI Qt real: **OK**.
+
+## 0.10.9 - 21/08/2026
 
 Primera fase funcional del siguiente bloque local-first, construida sobre la versión validada 0.10.8.
 
@@ -23,6 +70,15 @@ Primera fase funcional del siguiente bloque local-first, construida sobre la ver
 - **137 tests: OK**.
 - Smoke test PySide6 offscreen: **OK**.
 - Sin cambios de esquema ni migraciones de base de datos.
+
+### Validación CI
+
+- GitHub Actions run `32489725696`: **SUCCESS**.
+- **137 tests: OK**.
+- Smoke PySide6, PyInstaller y artifact upload: **OK**.
+- Ejecutable: `CirosPaint_0.10.9.exe`.
+- SHA-256 EXE: `d02c860d946a674a6d844a62395d007ab749d8ee86c2aa833d3014e2eb7524a8`.
+- Artefacto: `CirosPaint-Windows-0.10.9`, ID `9449420362`.
 
 ## 0.10.8 - 21/08/2026
 

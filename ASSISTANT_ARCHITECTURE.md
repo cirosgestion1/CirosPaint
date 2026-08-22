@@ -1,12 +1,16 @@
 # Ciros Assistant - Arquitectura
 
-Documento técnico de referencia para Ciros Assistant. **0.10.8** continúa siendo la versión validada; **0.10.9** está en desarrollo y añade routing local explícito y una política formal de confianza/escalado.
+Documento técnico de referencia para Ciros Assistant. **0.10.9** es la versión validada; **0.10.10** está en desarrollo y añade una capa central de consultas.
 
 ## Objetivo
 
 Ciros Assistant sigue un diseño **local-first**. Ciros Paint intenta resolver primero las consultas y acciones deterministas mediante servicios/repositories locales. Gemini se utiliza únicamente cuando hace falta interpretación adicional o generación de lenguaje.
 
 La IA no recibe acceso SQL, ORM ni acceso directo al archivo SQLite.
+
+El analizador determinista de pinturas de Favoritos es independiente del asistente y no usa Gemini. En 0.10.10 conserva todos los candidatos del catálogo, aplica aliases centralizados de marca/gama para desambiguar nombres y separa expresamente la identificación inicial del filtro >=85 % reservado para posibles coincidencias y alternativas.
+
+El catálogo de pinturas y los assets visuales de runtime validados forman parte de la reconstrucción histórica. Un manifiesto fija hashes y recuentos para el catálogo, logos de marca y miniaturas; tanto el rebuild local como CI verifican ese mismo conjunto antes de tests o empaquetado.
 
 ## Flujo general 0.10.9 (en desarrollo)
 
@@ -20,6 +24,8 @@ AssistantPage (PySide6)
   |       |
   |       v
   +--> AssistantLocalService
+  |       |
+  |       +--> CentralizedQueryService -> Repositories / SQLite / catálogos
   |       |
   |       +--> LocalEntityResolver
   |       |       |
@@ -115,11 +121,41 @@ Para pinturas y miniaturas, la capa local intenta resolver primero el nombre. Si
 5. resolución local insuficiente con candidatos reales: permitir Gemini;
 6. sin candidatos: rechazar localmente sin inventar entidades.
 
-Esta fase no incorpora Query Service, Command Bus, Event/Rules Engine, OCR ni reconocimiento de imagen.
+### Query Service centralizado
+
+`CentralizedQueryService` es una fachada exclusivamente de lectura. Expone inventario y catálogo de pinturas, stock, Futuras compras, colección y catálogo de miniaturas, incluido `owned_only` y filtros de estado. Delega en `PaintRepository`, `ShoppingRepository`, `MiniatureRepository`, `PaintCatalogService` y `MiniatureCatalogService`; no mantiene una segunda implementación SQL.
+
+`AssistantPaintService`, `AssistantLocalService` y los listados principales de las páginas de pinturas, compras y miniaturas migran gradualmente a esta fachada. Las mutaciones continúan en los services/repositories existentes.
+
+Esta fase no incorpora Command Bus, Event/Rules Engine, OCR ni reconocimiento de imagen.
 
 ### Workflows guiados
 
 `AssistantWorkflowEngine` conserva en memoria el estado de los flujos guiados de cada conversación. Al añadir miniaturas se consulta el catálogo completo; al cambiar el estado se muestran únicamente miniaturas poseídas. Después de un cambio correcto puede iniciarse el flujo encadenado `Cambiar otra miniatura`.
+
+### Contexto local mínimo de pinturas en 0.10.10
+
+Cada conversación puede conservar en memoria el ID de una pintura resuelta o una lista estructurada de candidatos. Esto permite mostrar de nuevo los candidatos y ejecutar las operaciones ya existentes de cantidad y Futuras compras sin repetir búsquedas ni usar Gemini. Una lista ambigua nunca autoriza escrituras; una petición nueva no relacionada invalida el contexto anterior.
+
+Las consultas por color comparan variantes lingüísticas genéricas con los valores reales de `primary_color` obtenidos mediante `CentralizedQueryService`. No existen reglas específicas para nombres de pinturas o colores concretos.
+
+El router reconoce además recuentos globales, nombres/colores aislados y construcciones conversacionales de posesión. La entidad se separa de palabras de la frase antes de resolverla. Para miniaturas se aplica un filtro léxico data-driven previo a la confianza común, de modo que un fuzzy bajo no presenta unidades sin relación; las ambigüedades siguen sin autorizar mutaciones.
+
+Los cambios naturales de estado extraen verbo, cantidad y entidad, y reutilizan la mutación local existente. Solo se ejecutan si la miniatura poseída es inequívoca y hay unidades disponibles para la transición solicitada.
+
+`MiniatureFactionResolver` concentra aliases estrictos. Acepta nombres canónicos y variantes derivables; los aliases de dominio no derivables viven en un registro pequeño y único. No utiliza fuzzy débil. Las consultas filtran exclusivamente la colección poseída y pueden sumar estados distintos de `Terminado`.
+
+Las operaciones textuales distinguen alta/incremento de inventario, intención futura, compra completada y orden ambigua. Reutilizan `AssistantPaintService`; una entidad ausente o ambigua produce aclaración local y no autoriza escritura.
+
+Los payloads visuales con ID se rehidratan desde SQLite antes de llegar a `AssistantPage`, garantizando el mismo `swatch_hex` canónico en todas las rutas.
+
+La UI presenta acciones rápidas solo cuando existe un ID de inventario inequívoco. `CentralizedQueryService` sigue siendo exclusivamente read-only; las escrituras reutilizan `AssistantPaintService` y los repositories existentes.
+
+Cada acción embebida en una tarjeta transporta el `paint_id` de esa tarjeta. El callback no vuelve a inferir la entidad desde la etiqueta ni depende de la pintura activa global. Las compras completadas se ejecutan mediante `ShoppingRepository.mark_purchased`; el Query Service no participa en escrituras.
+
+Los nombres aislados se comparan primero con facciones y unidades poseídas reales. La tolerancia ortográfica ampliada queda limitada al namespace de unidades de Star Wars: Legion; otras facciones y juegos conservan resolución exacta/normalizada y selección segura.
+
+La lectura `list_future_purchase_rows()` es también read-only y constituye la fuente compartida para página y asistente. Combina compras futuras explícitas, reposiciones automáticas compatibles y materiales sin trasladar mutaciones de Materiales.
 
 ## Conversaciones
 

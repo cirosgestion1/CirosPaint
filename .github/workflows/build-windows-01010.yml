@@ -1,0 +1,69 @@
+name: Build Windows EXE 0.10.10
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Rebuild Ciros Paint 0.10.10
+        shell: pwsh
+        run: ./tools/rebuild_current.ps1
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          cd build_source
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller
+          python -c "from google import genai; import google.genai; c=genai.Client(api_key='AQ.fake-ciros-paint'); assert callable(c.interactions.create); c.close(); print('google-genai', getattr(google.genai,'__version__','unknown'), 'Interactions API available')"
+
+      - name: Verify historical catalogs and runtime assets
+        shell: pwsh
+        run: |
+          python tools/verify_runtime_assets.py build_source
+          cd build_source
+          python -c "import json,pathlib; p=json.loads(pathlib.Path('app/data/paint_catalog.json').read_text(encoding='utf-8')); m=json.loads(pathlib.Path('app/data/miniature_catalog.json').read_text(encoding='utf-8')); assert len(p)==2511; assert all(isinstance(x.get('lab'),list) and len(x['lab'])==3 for x in p); assert m.get('catalog_revision')=='0.8.1'; assert sum(len(f['units']) for g in m['games'] for f in g['factions'])>500; print('Historical catalogs and runtime assets OK')"
+
+      - name: Run tests
+        shell: pwsh
+        working-directory: build_source
+        run: |
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          $env:PYTHONPATH = (Get-Location).Path
+          python -m unittest discover -s tests -v
+
+      - name: Functional assistant UI smoke test
+        shell: pwsh
+        working-directory: build_source
+        run: |
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          $env:PYTHONPATH = (Get-Location).Path
+          python -c "from PySide6.QtWidgets import QApplication,QLineEdit; app=QApplication([]); from app.core.config import APP_VERSION; assert APP_VERSION=='0.10.10'; from app.ui.pages.assistant_page import AssistantPage; p=AssistantPage(); assert p.send_button.text()=='Enviar' and not p.busy; from app.ui.pages.settings_page import SettingsPage; s=SettingsPage(); assert s.gemini_api_key_input.echoMode()==QLineEdit.Password and 'Requests Gemini del día' in s.gemini_request_count.text(); from app.services.assistant_intent_router import AssistantLocalIntentRouter; from app.services.assistant_confidence_gateway import ConfidenceEscalationGateway; from app.services.query_service import CentralizedQueryService; assert AssistantLocalIntentRouter and ConfidenceEscalationGateway and CentralizedQueryService; from app.services.assistant_gemini_service import GeminiAssistantService; tools=GeminiAssistantService._gemini_tool_declarations(); assert len(tools)==7 and all(t['type']=='function' for t in tools); p.close(); s.close(); print('Ciros Paint 0.10.10 assistant smoke test OK')"
+
+      - name: Build CirosPaint_0.10.10.exe
+        shell: pwsh
+        working-directory: build_source
+        run: |
+          python -m PyInstaller --noconfirm --clean --windowed --onefile --name CirosPaint --collect-all google.genai --add-data "app/data/paint_catalog.json;app/data" --add-data "app/data/miniature_catalog.json;app/data" --add-data "app/assets/brands;app/assets/brands" --add-data "app/assets/miniatures;app/assets/miniatures" --add-data "app/assets/favorites;app/assets/favorites" --add-data "THIRD_PARTY_NOTICES.txt;." --add-data "MINIATURE_ASSET_SOURCES.md;." main.py
+          if (!(Test-Path 'dist/CirosPaint.exe')) { throw 'CirosPaint.exe was not generated' }
+          Move-Item 'dist/CirosPaint.exe' 'dist/CirosPaint_0.10.10.exe'
+          if (!(Test-Path 'dist/CirosPaint_0.10.10.exe')) { throw 'CirosPaint_0.10.10.exe was not generated' }
+          Get-Item dist/CirosPaint_0.10.10.exe | Format-List Name,Length,FullName
+          $exeHash = (Get-FileHash 'dist/CirosPaint_0.10.10.exe' -Algorithm SHA256).Hash.ToLower()
+          Write-Host "CirosPaint_0.10.10.exe SHA256: $exeHash"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CirosPaint-Windows-0.10.10
+          path: build_source/dist/CirosPaint_0.10.10.exe
+          if-no-files-found: error
+          retention-days: 30

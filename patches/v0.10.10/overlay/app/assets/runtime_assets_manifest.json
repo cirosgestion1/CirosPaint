@@ -1,0 +1,18 @@
+{
+  "version": "0.10.10",
+  "paint_catalog": {
+    "path": "app/data/paint_catalog.json",
+    "entries": 2511,
+    "sha256": "1aa935e76eb12ca09dccd8db953766591e5b9d5cce774b5f008a3356e984e158"
+  },
+  "brand_assets": {
+    "app/assets/brands/ak_interactive.png": "1d542059743e000a8951f8c707ae3406c3769ce6c522e4f96fc6e26808a49289",
+    "app/assets/brands/citadel.png": "28a3a176f60949ee238d1a0684425dd01c51bfc0c36026e5080170a16c0e2763",
+    "app/assets/brands/vallejo.png": "0635dcf19d5598b27ef3b99e0db3855bb9e3f0925c7e5fd070c4d1771d8b148b"
+  },
+  "miniature_assets": {
+    "root": "app/assets/miniatures",
+    "file_count": 128,
+    "tree_sha256": "29fcfb6c27adb4306a9fb5f3d251a600176b1495f59d8f172526c6e3b6b4de25"
+  }
+}

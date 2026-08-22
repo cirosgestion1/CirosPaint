@@ -4,13 +4,25 @@
 
 ## Estado actual
 
-Versión más reciente validada: **Ciros Paint 0.10.8**
+Versión más reciente validada: **Ciros Paint 0.10.9**
 
 Rama de verificación utilizada: `build/verify-0.10.8`
 
 La familia 0.10 amplía la base consolidada de 0.9 con análisis de pinturas en Favoritos y Ciros Assistant. 0.10.8 refuerza la arquitectura **local-first** con resolución local de entidades, workflows guiados, autocompletado contextual y fallback acotado a Gemini para nombres que no pueden resolverse localmente con seguridad.
 
-Desarrollo actual en la rama `feature/local-intent-confidence-gateway`: **0.10.9 no validada todavía por CI**. Añade un router explícito de intents locales y una política central de confianza/escalado. La validación local reconstruye correctamente la cadena histórica, ejecuta 137 tests y supera el smoke test PySide6. La versión publicada y validada continúa siendo 0.10.8 hasta completar CI y build Windows.
+0.10.9 fue validada por GitHub Actions run `32489725696` con 137 tests, smoke PySide6, PyInstaller y artefacto Windows correctos.
+
+Desarrollo actual en `feature/centralized-query-service`: **0.10.10**, con una fachada central read-only sobre repositories/SQLite y catálogos. No cambia mutaciones ni esquema de base de datos.
+
+La estabilización previa al merge corrige el dimensionado dinámico del chat, amplía el routing local data-driven de pinturas, añade contexto mínimo por ID para continuaciones seguras y sustituye el selector de cantidad del workflow de miniaturas por un control validado. Se mantiene 0.10.10 y no se incorpora ninguna fase posterior del roadmap.
+
+La estabilización manual posterior fija el ancho efectivo antes de calcular la altura de las burbujas, incorpora recuentos globales y términos aislados al routing local, limpia sufijos conversacionales y endurece la relevancia fuzzy de miniaturas. También admite cambios naturales de estado cuando estado, cantidad, entidad y disponibilidad se resuelven localmente sin ambigüedad.
+
+La estabilización final de 0.10.10 unifica los datos visuales canónicos de pinturas, hace visibles las flechas del selector de cantidad, añade consultas locales estrictas por facción y por miniaturas pendientes, completa las órdenes textuales de pinturas y alinea el resumen del asistente con la página real de Futuras compras, incluidos materiales. No añade esquema, dependencias ni fases posteriores.
+
+La corrección manual posterior enlaza cada acción de pintura con su ID canónico, reutiliza el flujo real de compra completada, amplía nombres aislados y typos seguros de unidades Legion y restaura para validación local los assets históricos extraídos de los EXE ya validados, sin descargas ni sustituciones.
+
+La estabilización de regresiones fija además el analizador de pinturas de Favoritos sobre el catálogo completo validado: los aliases de nombres repetidos se desambiguan mediante marca/gama, los comentarios parentéticos no contaminan la entidad y las abreviaturas se centralizan. Catálogo, logos y miniaturas pasan a formar parte del overlay reproducible de 0.10.10 con verificación SHA-256, eliminando la diferencia visual entre reconstrucción local y CI.
 
 ## Validación automática final de 0.10.8
 
@@ -62,6 +74,14 @@ SHA-256 EXE:
 La CI verificó el ejecutable y publicó el artefacto Windows de 0.10.8.
 
 ## Catálogos y assets
+
+Desarrollo 0.10.10:
+
+- catálogo histórico validado: **2511 pinturas**, SHA-256 `1aa935e76eb12ca09dccd8db953766591e5b9d5cce774b5f008a3356e984e158`;
+- logos históricos de Citadel, Vallejo y AK Interactive recuperados idénticos de ambos EXE validados;
+- **128 assets de miniaturas** versionados y verificados como un árbol determinista;
+- `tools/rebuild_current.ps1` falla antes de publicar si falta o cambia un recurso requerido;
+- CI y reconstrucción local consumen el mismo conjunto, sin downloaders de assets.
 
 Build 0.10.8:
 
