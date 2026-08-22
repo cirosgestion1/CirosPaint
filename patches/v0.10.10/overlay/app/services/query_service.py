@@ -85,6 +85,25 @@ class CentralizedQueryService:
                     rows.append({"paint_id": paint.id, "paint": paint, "quantity": 1})
         return sorted(rows, key=lambda row: (_normalize(row["paint"].name), _normalize(row["paint"].brand)))
 
+    def list_future_purchase_rows(self, *, include_restock: bool = True) -> list[dict]:
+        """Return the same paint/material rows displayed by Futuras compras."""
+        rows = [
+            {"kind": "paint", **row}
+            for row in self.list_future_paint_rows(include_restock=include_restock)
+        ]
+        rows.extend(
+            {
+                "kind": "material", "material_id": entry.material_id,
+                "material": entry.material, "quantity": max(1, _safe_int(entry.quantity)),
+            }
+            for entry in self.shopping_repository.list_material_future()
+            if getattr(entry, "material", None) is not None
+        )
+        return sorted(rows, key=lambda row: (
+            0 if row["kind"] == "paint" else 1,
+            _normalize(getattr(row[row["kind"]], "name", "")),
+        ))
+
     @staticmethod
     def paint_units(paint: object) -> int:
         return _safe_int(getattr(paint, "available_units", 0)) + _safe_int(getattr(paint, "low_units", 0))

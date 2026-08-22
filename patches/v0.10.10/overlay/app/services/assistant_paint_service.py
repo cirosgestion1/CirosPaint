@@ -190,23 +190,7 @@ class AssistantPaintService:
 
         paint = self._find_inventory_by_catalog(source)
         if paint is None:
-            primary_color, complementary_colors = infer_color_tags(
-                getattr(source, "name", ""),
-                getattr(source, "swatch_hex", None),
-                getattr(source, "range_name", None),
-            )
-            paint = self.paint_repository.add(
-                primary_color=primary_color,
-                complementary_colors=complementary_colors,
-                brand=getattr(source, "brand", ""),
-                name=getattr(source, "name", ""),
-                code=getattr(source, "code", None),
-                range_name=getattr(source, "range_name", None),
-                paint_type=getattr(source, "paint_type", "Acrílico"),
-                swatch_hex=getattr(source, "swatch_hex", None),
-                available_units=quantity,
-                low_units=0,
-            )
+            paint = self._create_inventory_paint(source, available_units=quantity)
         else:
             paint.available_units = self._safe_int(getattr(paint, "available_units", 0)) + quantity
             self.session.commit()
@@ -284,6 +268,33 @@ class AssistantPaintService:
             {"paint": payload, "quantity": quantity},
         )
 
+    def mark_paint_id_purchased(self, paint_id: int, quantity: int = 1) -> AssistantToolResult:
+        paint = self.query_service.get_inventory_paint(int(paint_id))
+        if paint is None:
+            return AssistantToolResult("not_found", "La pintura indicada ya no existe en el inventario.")
+        if not self.shopping_repository.mark_purchased(int(paint.id), quantity):
+            return AssistantToolResult("error", "No se ha podido registrar la compra.")
+        paint = self.query_service.get_inventory_paint(int(paint.id))
+        payload = self._paint_payload(paint)
+        return AssistantToolResult(
+            "ok", "Compra registrada y retirada de Futuras compras.",
+            {"paint": payload, "purchased_units": max(1, int(quantity))},
+        )
+
+    def mark_paint_purchased(
+        self, query: str = "", brand: str = "", name: str = "", code: str = "",
+        range_name: str = "", quantity: int = 1,
+    ) -> AssistantToolResult:
+        source = self._resolve_catalog_paint(
+            query=query, brand=brand, name=name, code=code, range_name=range_name
+        )
+        if isinstance(source, AssistantToolResult):
+            return source
+        paint = self._find_inventory_by_catalog(source)
+        if paint is None:
+            paint = self._create_inventory_paint(source, available_units=0)
+        return self.mark_paint_id_purchased(int(paint.id), quantity)
+
     def add_paint_to_future_purchases(
         self,
         query: str = "",
@@ -305,23 +316,7 @@ class AssistantPaintService:
             return source
         paint = self._find_inventory_by_catalog(source)
         if paint is None:
-            primary_color, complementary_colors = infer_color_tags(
-                getattr(source, "name", ""),
-                getattr(source, "swatch_hex", None),
-                getattr(source, "range_name", None),
-            )
-            paint = self.paint_repository.add(
-                primary_color=primary_color,
-                complementary_colors=complementary_colors,
-                brand=getattr(source, "brand", ""),
-                name=getattr(source, "name", ""),
-                code=getattr(source, "code", None),
-                range_name=getattr(source, "range_name", None),
-                paint_type=getattr(source, "paint_type", "Acrílico"),
-                swatch_hex=getattr(source, "swatch_hex", None),
-                available_units=0,
-                low_units=0,
-            )
+            paint = self._create_inventory_paint(source, available_units=0)
 
         existing = self.shopping_repository.get_for_paint(paint.id)
         if existing is not None and getattr(existing, "stage", None) == "future" and self._safe_int(getattr(existing, "quantity", 0)) == quantity:
@@ -454,6 +449,20 @@ class AssistantPaintService:
                 return paint
         return None
 
+    def _create_inventory_paint(self, source: object, *, available_units: int):
+        primary_color, complementary_colors = infer_color_tags(
+            getattr(source, "name", ""), getattr(source, "swatch_hex", None),
+            getattr(source, "range_name", None),
+        )
+        return self.paint_repository.add(
+            primary_color=primary_color, complementary_colors=complementary_colors,
+            brand=getattr(source, "brand", ""), name=getattr(source, "name", ""),
+            code=getattr(source, "code", None), range_name=getattr(source, "range_name", None),
+            paint_type=getattr(source, "paint_type", "Acrílico"),
+            swatch_hex=getattr(source, "swatch_hex", None),
+            available_units=max(0, int(available_units)), low_units=0,
+        )
+
     @staticmethod
     def _same_identity(first: object, second: object) -> bool:
         if _normalize(getattr(first, "brand", "")) != _normalize(getattr(second, "brand", "")):
@@ -528,6 +537,7 @@ class AssistantPaintService:
             "paint_type": str(getattr(paint, "paint_type", "") or ""),
             "primary_color": getattr(paint, "primary_color", None),
             "complementary_colors": list(getattr(paint, "complementary_colors", ()) or ()),
+            "swatch_hex": getattr(paint, "swatch_hex", None),
             "available_units": max(0, self._safe_int(getattr(paint, "available_units", 0))),
             "low_units": max(0, self._safe_int(getattr(paint, "low_units", 0))),
             "total_units": self._inventory_units(paint),
@@ -566,5 +576,4 @@ def _normalize(value: str) -> str:
     decomposed = unicodedata.normalize("NFKD", str(value or "").casefold())
     without_marks = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
     return " ".join(re.sub(r"[^a-z0-9]+", " ", without_marks).split())
-
 

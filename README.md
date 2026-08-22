@@ -20,6 +20,8 @@ Validación automática de 0.10.8:
 
 Desarrollo 0.10.10: incorpora `CentralizedQueryService` como fachada read-only para consultas de pinturas, compras y miniaturas. Reutiliza repositories/SQLite y servicios de catálogo existentes; las mutaciones permanecen sin cambios.
 
+La reconstrucción 0.10.10 incluye también el catálogo validado de 2511 pinturas y los assets históricos originales de marcas/miniaturas recuperados de los dos EXE validados. `tools/rebuild_current.ps1` verifica sus hashes y recuentos, de modo que la fuente local y CI utilizan exactamente los mismos recursos sin descargas durante la build.
+
 ## Funcionalidades principales
 
 ### Pinturas
@@ -66,6 +68,8 @@ Desarrollo 0.10.10: incorpora `CentralizedQueryService` como fachada read-only p
 - Diferenciación entre coincidencias exactas, posibles coincidencias y pinturas ausentes.
 - Alternativas por color usando CIELAB/DeltaE y umbral >=85 %.
 - Pinturas ausentes añadibles a Futuras compras sin duplicados.
+- Normalización de comentarios parentéticos y aliases centralizados de gama como `VMC`.
+- Identificación contra el catálogo real separada del umbral >=85 % aplicado a alternativas.
 
 ## Ciros Assistant
 
@@ -94,6 +98,10 @@ En 0.10.9, `AssistantLocalIntentRouter` extrae del servicio la clasificación de
 La estabilización de 0.10.10 mantiene además un contexto local mínimo por conversación para la pintura activa/candidatos, resuelve consultas por los colores reales del inventario sin reglas específicas y ofrece continuaciones locales seguras. Las burbujas calculan dinámicamente su altura y el selector de cantidad de miniaturas respeta los límites disponibles.
 
 El routing local de 0.10.10 cubre también recuentos globales, nombres o colores aislados, consultas conversacionales de posesión y cambios naturales de estado con cantidad. La resolución sigue siendo data-driven y descarta candidatos de miniaturas sin relación suficiente antes de considerar Gemini.
+
+La estabilización final mantiene swatches canónicos por ID, consultas de miniaturas por facción/estado, órdenes textuales seguras de inventario y compras, y un resumen de Futuras compras equivalente a la página real, incluidos materiales. Estas rutas funcionan sin API Key y consumen cero requests Gemini.
+
+Las acciones embebidas en una tarjeta conservan además el `paint_id` que originó el resultado. La compra completada reutiliza el repository existente, y los nombres aislados/typos seguros de unidades Star Wars: Legion se resuelven dentro del namespace real del catálogo. Los assets históricos de miniaturas usados en la validación local se recuperaron sin red desde los ejecutables 0.10.10 ya validados y se comprobaron por SHA-256.
 
 ### Gemini
 

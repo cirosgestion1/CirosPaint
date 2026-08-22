@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtCore import QSize, Qt, QThreadPool, Signal
-from PySide6.QtGui import QPixmap, QTextDocument
+from PySide6.QtCore import QPoint, QSize, Qt, QThreadPool, Signal
+from PySide6.QtGui import QColor, QPainter, QPixmap, QPolygon, QTextDocument
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QCompleter,
@@ -23,6 +23,8 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSpinBox,
+    QStyle,
+    QStyleOptionSpinBox,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -86,6 +88,32 @@ class WrappingRichLabel(QLabel):
         return QSize(1, self.heightForWidth(max(1, self.width())))
 
 
+class VisibleArrowSpinBox(QSpinBox):
+    """Native spin box behavior with explicit high-contrast arrow glyphs."""
+
+    def arrow_rects(self):
+        option = QStyleOptionSpinBox()
+        self.initStyleOption(option)
+        return (
+            self.style().subControlRect(QStyle.CC_SpinBox, option, QStyle.SC_SpinBoxUp, self),
+            self.style().subControlRect(QStyle.CC_SpinBox, option, QStyle.SC_SpinBoxDown, self),
+        )
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor("#f1f5f9") if self.isEnabled() else QColor("#64748b"))
+        for rect, upward in zip(self.arrow_rects(), (True, False)):
+            center = rect.center()
+            points = (
+                [QPoint(center.x(), center.y() - 3), QPoint(center.x() - 4, center.y() + 2), QPoint(center.x() + 4, center.y() + 2)]
+                if upward else
+                [QPoint(center.x(), center.y() + 3), QPoint(center.x() - 4, center.y() - 2), QPoint(center.x() + 4, center.y() - 2)]
+            )
+            painter.drawPolygon(QPolygon(points))
+
+
 class QuantityDialog(QDialog):
     """Validated quantity chooser with reliable native spin controls."""
 
@@ -94,12 +122,13 @@ class QuantityDialog(QDialog):
         self.setWindowTitle(title)
         layout = QVBoxLayout(self)
         prompt = QLabel(label); prompt.setWordWrap(True); layout.addWidget(prompt)
-        self.spin = QSpinBox(self)
+        self.spin = VisibleArrowSpinBox(self)
         self.spin.setRange(int(minimum), int(maximum)); self.spin.setValue(int(value)); self.spin.setSingleStep(1)
         self.spin.setKeyboardTracking(False); self.spin.setMinimumWidth(150)
         self.spin.setStyleSheet(
             "QSpinBox { padding: 7px 28px 7px 7px; }"
-            "QSpinBox::up-button, QSpinBox::down-button { width: 24px; border-left: 1px solid #303949; }"
+            "QSpinBox::up-button, QSpinBox::down-button { width: 24px; border-left: 1px solid #303949; background:#202938; }"
+            "QSpinBox::up-button:hover, QSpinBox::down-button:hover { background:#334155; }"
         )
         layout.addWidget(self.spin)
         buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
@@ -112,7 +141,7 @@ class QuantityDialog(QDialog):
 
 
 class AssistantMessageBubble(QFrame):
-    action_requested = Signal(str)
+    action_requested = Signal(object)
 
     def __init__(
         self,
@@ -217,6 +246,9 @@ class AssistantMessageBubble(QFrame):
                 swatch.setStyleSheet(f"background: {color}; border: 1px solid #94a3b8; border-radius: 10px;")
                 row_layout.addWidget(swatch)
                 name = " ".join(part for part in (str(paint.get("brand") or ""), str(paint.get("name") or "")) if part).strip()
+                range_name = str(paint.get("range_name") or "").strip()
+                if range_name:
+                    name = f"{name} — {range_name}"
                 detail = QLabel(name or "Pintura")
                 detail.setWordWrap(True)
                 detail.setStyleSheet("background: transparent; border: none; color: #e8eef7; font-weight: 600;")
@@ -261,6 +293,18 @@ class AssistantMessageBubble(QFrame):
                 text = QLabel(f"• {match.get('unit_name', '')}")
                 text.setStyleSheet("background: transparent; border: none; color: #d7e2ef;")
                 layout.addWidget(text)
+        elif kind == "future_purchases":
+            for item in data.get("items") or []:
+                entity = item.get("entity") or {}
+                prefix = "Pintura" if item.get("kind") == "paint" else "Material"
+                name = " ".join(str(entity.get(key) or "") for key in ("brand", "name")).strip()
+                range_name = str(entity.get("range_name") or "").strip()
+                if item.get("kind") == "paint" and range_name:
+                    name = f"{name} — {range_name}"
+                text = QLabel(f"• {prefix}: {name} — {int(item.get('quantity') or 1)}")
+                text.setWordWrap(True)
+                text.setStyleSheet("background: transparent; border: none; color: #d7e2ef;")
+                layout.addWidget(text)
 
     def _add_actions(self, layout: QVBoxLayout, metadata: dict):
         data = metadata.get("data") or {}
@@ -275,7 +319,8 @@ class AssistantMessageBubble(QFrame):
                 continue
             button = QPushButton(label)
             button.setObjectName("SecondaryButton")
-            button.clicked.connect(lambda _checked=False, value=action_id: self.action_requested.emit(value))
+            action_payload = dict(action) if action.get("paint_id") is not None else action_id
+            button.clicked.connect(lambda _checked=False, value=action_payload: self.action_requested.emit(value))
             row.addWidget(button)
         row.addStretch()
         layout.addLayout(row)
@@ -484,24 +529,32 @@ class AssistantPage(QWidget):
         self.attached_image_path = None; self.attachment_label.clear(); self.attachment_label.setVisible(False); self.remove_attachment_button.setVisible(False)
 
     # -------------------------- local quick actions --------------------------
-    def _quick_action(self, action: str):
+    def _quick_action(self, action: str | dict):
         if self._busy: return
+        payload = dict(action) if isinstance(action, dict) else {}
+        action = str(payload.get("action") or action)
+        paint_id = payload.get("paint_id")
         conversation = self._ensure_conversation()
         with get_session() as session:
             local = self._local_service(session, conversation.id)
             if action == "paint_active_add":
-                self._publish_local_request("Añadir otra", local.change_active_paint_quantity("add")); return
+                result = local.change_paint_quantity_by_id(paint_id, "add") if paint_id is not None else local.change_active_paint_quantity("add")
+                self._publish_local_request("Añadir otra", result); return
             if action == "paint_active_remove":
-                self._publish_local_request("Quitar una", local.change_active_paint_quantity("remove")); return
+                result = local.change_paint_quantity_by_id(paint_id, "remove") if paint_id is not None else local.change_active_paint_quantity("remove")
+                self._publish_local_request("Quitar una", result); return
             if action == "paint_active_future":
-                self._publish_local_request("Añadirla a futuras compras", local.add_active_paint_to_future()); return
+                result = local.add_paint_id_to_future(paint_id) if paint_id is not None else local.add_active_paint_to_future()
+                self._publish_local_request("Añadirla a futuras compras", result); return
             if action == "paint_active_set":
-                active = local._active_inventory_paint()
+                active = local.query_service.get_inventory_paint(paint_id) if paint_id is not None else local._active_inventory_paint()
                 if active is None:
                     self._publish_local_request("Cambiar cantidad", LocalAssistantResult("ambiguous", "Selecciona primero una pintura inequívoca.")); return
                 current = local.query_service.paint_units(active)
                 quantity, ok = QuantityDialog.get_value("Cambiar cantidad", "Cantidad total", current, 0, 999, self)
-                if ok: self._publish_local_request(f"Ponla a {quantity}", local.change_active_paint_quantity("set", quantity))
+                if ok:
+                    result = local.change_paint_quantity_by_id(paint_id, "set", quantity) if paint_id is not None else local.change_active_paint_quantity("set", quantity)
+                    self._publish_local_request(f"Ponla a {quantity}", result)
                 return
             if action == "paint_find":
                 value = AutocompleteDialog.get_value("Buscar pintura", "Nombre de la pintura", local.paint_autocomplete(), self)

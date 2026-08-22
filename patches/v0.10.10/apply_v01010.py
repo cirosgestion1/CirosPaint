@@ -135,9 +135,15 @@ def main(root: Path) -> None:
                             "from app.repositories.shopping_repository import ShoppingRepository\nfrom app.services.query_service import CentralizedQueryService\n",
                             "shopping query import")
         start = "            shopping_repo = ShoppingRepository(session)\n            entries = shopping_repo.list_entries()"
-        end = "\n            for entry in shopping_repo.list_material_future():"
-        new = "            shopping_repo = ShoppingRepository(session)\n            paint_rows = CentralizedQueryService(\n                session, shopping_repository=shopping_repo\n            ).list_future_paint_rows(include_restock=True)"
-        return replace_section(text, start, end, new, "shopping paint reads")
+        end = "\n        rows = [(\"paint\", row) for row in paint_rows] + [(\"material\", row) for row in material_rows]"
+        new = '''            shopping_repo = ShoppingRepository(session)
+            purchase_rows = CentralizedQueryService(
+                session, shopping_repository=shopping_repo
+            ).list_future_purchase_rows(include_restock=True)
+            paint_rows = [row for row in purchase_rows if row["kind"] == "paint"]
+            material_rows = [row for row in purchase_rows if row["kind"] == "material"]
+'''
+        return replace_section(text, start, end, new, "shopping purchase reads")
     update(root, "app/ui/pages/shopping_page.py", shopping_page)
 
     def miniatures_page(text: str) -> str:
@@ -160,6 +166,9 @@ def main(root: Path) -> None:
         root / "app/services/assistant_conversation_context.py",
         root / "tests/test_query_service_v01010.py",
         root / "tests/test_assistant_regressions_v01010.py",
+        root / "tests/test_favorite_paint_analysis_regressions_v01010.py",
+        root / "tests/test_runtime_assets_v01010.py",
+        root / "app/assets/runtime_assets_manifest.json",
     ]
     if not all(path.is_file() for path in required):
         raise RuntimeError("Missing 0.10.10 overlay files")

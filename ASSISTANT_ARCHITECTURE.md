@@ -8,6 +8,10 @@ Ciros Assistant sigue un diseño **local-first**. Ciros Paint intenta resolver p
 
 La IA no recibe acceso SQL, ORM ni acceso directo al archivo SQLite.
 
+El analizador determinista de pinturas de Favoritos es independiente del asistente y no usa Gemini. En 0.10.10 conserva todos los candidatos del catálogo, aplica aliases centralizados de marca/gama para desambiguar nombres y separa expresamente la identificación inicial del filtro >=85 % reservado para posibles coincidencias y alternativas.
+
+El catálogo de pinturas y los assets visuales de runtime validados forman parte de la reconstrucción histórica. Un manifiesto fija hashes y recuentos para el catálogo, logos de marca y miniaturas; tanto el rebuild local como CI verifican ese mismo conjunto antes de tests o empaquetado.
+
 ## Flujo general 0.10.9 (en desarrollo)
 
 ```text
@@ -139,7 +143,19 @@ El router reconoce además recuentos globales, nombres/colores aislados y constr
 
 Los cambios naturales de estado extraen verbo, cantidad y entidad, y reutilizan la mutación local existente. Solo se ejecutan si la miniatura poseída es inequívoca y hay unidades disponibles para la transición solicitada.
 
+`MiniatureFactionResolver` concentra aliases estrictos. Acepta nombres canónicos y variantes derivables; los aliases de dominio no derivables viven en un registro pequeño y único. No utiliza fuzzy débil. Las consultas filtran exclusivamente la colección poseída y pueden sumar estados distintos de `Terminado`.
+
+Las operaciones textuales distinguen alta/incremento de inventario, intención futura, compra completada y orden ambigua. Reutilizan `AssistantPaintService`; una entidad ausente o ambigua produce aclaración local y no autoriza escritura.
+
+Los payloads visuales con ID se rehidratan desde SQLite antes de llegar a `AssistantPage`, garantizando el mismo `swatch_hex` canónico en todas las rutas.
+
 La UI presenta acciones rápidas solo cuando existe un ID de inventario inequívoco. `CentralizedQueryService` sigue siendo exclusivamente read-only; las escrituras reutilizan `AssistantPaintService` y los repositories existentes.
+
+Cada acción embebida en una tarjeta transporta el `paint_id` de esa tarjeta. El callback no vuelve a inferir la entidad desde la etiqueta ni depende de la pintura activa global. Las compras completadas se ejecutan mediante `ShoppingRepository.mark_purchased`; el Query Service no participa en escrituras.
+
+Los nombres aislados se comparan primero con facciones y unidades poseídas reales. La tolerancia ortográfica ampliada queda limitada al namespace de unidades de Star Wars: Legion; otras facciones y juegos conservan resolución exacta/normalizada y selección segura.
+
+La lectura `list_future_purchase_rows()` es también read-only y constituye la fuente compartida para página y asistente. Combina compras futuras explícitas, reposiciones automáticas compatibles y materiales sin trasladar mutaciones de Materiales.
 
 ## Conversaciones
 

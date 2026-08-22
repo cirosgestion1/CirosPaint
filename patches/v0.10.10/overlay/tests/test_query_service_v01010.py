@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db.base import Base
 from app.repositories.miniature_repository import MiniatureRepository
+from app.repositories.material_repository import MaterialRepository
 from app.repositories.paint_repository import PaintRepository
 from app.repositories.shopping_repository import ShoppingRepository
 from app.services.assistant_local_service import AssistantLocalService
@@ -92,6 +93,18 @@ class CentralizedQueryServiceV01010Tests(unittest.TestCase):
         rows = self.queries.list_future_paint_rows()
         self.assertEqual([(entry.paint.name, entry.quantity) for entry in entries], [("Black", 2)])
         self.assertEqual([(row["paint"].name, row["quantity"]) for row in rows], [("Black", 2)])
+
+    def test_generic_future_purchase_rows_match_paint_and_material_repositories(self):
+        material = MaterialRepository(self.session).add(
+            brand="Tamiya", name="Masking Tape", category="Otros", quantity=0
+        )
+        self.shopping_repository.set_material_future_quantity(material.id, 3)
+        rows = self.queries.list_future_purchase_rows(include_restock=True)
+        paint_entries = self.queries.list_future_paint_rows(include_restock=True)
+        material_entries = self.shopping_repository.list_material_future()
+        self.assertEqual(len(rows), len(paint_entries) + len(material_entries))
+        self.assertEqual({row["kind"] for row in rows}, {"paint", "material"})
+        self.assertEqual(next(row["quantity"] for row in rows if row["kind"] == "material"), 3)
 
     def test_miniature_collection_and_state_filter(self):
         all_entries = self.queries.list_miniature_collection("Star Wars: Legion", "Imperio")

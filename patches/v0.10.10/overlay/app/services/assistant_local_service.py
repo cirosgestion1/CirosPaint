@@ -18,6 +18,7 @@ from app.services.assistant_entity_resolver import EntityCandidate, LocalEntityR
 from app.services.assistant_intent_router import AssistantLocalIntentRouter
 from app.services.assistant_paint_service import AssistantPaintService
 from app.services.paint_catalog_service import PaintCatalogService
+from app.services.miniature_faction_resolver import MiniatureFactionResolver, faction_forms, normalize_faction
 from app.services.query_service import CentralizedQueryService, MiniatureCatalogUnit
 
 
@@ -71,6 +72,7 @@ class AssistantLocalService:
         self.entity_resolver = LocalEntityResolver()
         self.confidence_gateway = ConfidenceEscalationGateway()
         self.intent_router = AssistantLocalIntentRouter(self)
+        self.faction_resolver = MiniatureFactionResolver()
         self.context = context or PaintConversationContext()
         self._miniatures = self.query_service.list_miniature_catalog_units()
 
@@ -123,8 +125,39 @@ class AssistantLocalService:
             return self.paints_by_color(matching_colors[0])
         return self.find_paint(query)
 
-    def list_future_paints(self) -> LocalAssistantResult:
-        return self._from_tool_result(self.paint_service.list_future_paint_purchases())
+    def list_future_paints(self, scope: str = "all") -> LocalAssistantResult:
+        rows = self.query_service.list_future_purchase_rows(include_restock=True)
+        paint_rows = [row for row in rows if row["kind"] == "paint"]
+        material_rows = [row for row in rows if row["kind"] == "material"]
+        selected = paint_rows if scope == "paints" else material_rows if scope == "materials" else rows
+        if scope == "paints":
+            message = f"Tienes {len(paint_rows)} pintura{'s' if len(paint_rows) != 1 else ''} en Futuras compras."
+        elif scope == "materials":
+            message = f"Tienes {len(material_rows)} material{'es' if len(material_rows) != 1 else ''} en Futuras compras."
+        else:
+            message = (
+                f"Tienes {len(rows)} productos en Futuras compras: "
+                f"{len(paint_rows)} pintura{'s' if len(paint_rows) != 1 else ''} y "
+                f"{len(material_rows)} material{'es' if len(material_rows) != 1 else ''}."
+            )
+        return LocalAssistantResult("ok", message, "future_purchases", {
+            "items": [self._future_payload(row) for row in selected],
+            "paint_count": len(paint_rows), "material_count": len(material_rows), "total": len(rows),
+            "scope": scope,
+        })
+
+    def add_inventory_paint(self, query: str, quantity: int = 1) -> LocalAssistantResult:
+        if not normalize_entity_text(query):
+            return self.clarify_paint_operation()
+        return self._from_tool_result(self.paint_service.add_paint_to_inventory(query=query, quantity=quantity))
+
+    def clarify_paint_operation(self, query: str = "", reason: str = "missing_entity") -> LocalAssistantResult:
+        if reason == "purchase_meaning":
+            label = f" {query}" if query else " esa pintura"
+            return LocalAssistantResult(
+                "needs_input", f"¿Quieres añadir{label} a Futuras compras o marcarla como ya comprada?"
+            )
+        return LocalAssistantResult("needs_input", "¿Qué pintura quieres añadir?")
 
     def guided_add_miniature(self) -> LocalAssistantResult:
         return LocalAssistantResult(
@@ -256,6 +289,13 @@ class AssistantLocalService:
         paint = self._active_inventory_paint()
         if paint is None:
             return LocalAssistantResult("ambiguous", "Selecciona primero una pintura inequívoca. No se ha modificado nada.")
+        return self.change_paint_quantity_by_id(int(paint.id), mode, quantity)
+
+    def change_paint_quantity_by_id(self, paint_id: int, mode: str, quantity: int = 1) -> LocalAssistantResult:
+        """Apply a card action to its canonical paint, independent of global context."""
+        paint = self.query_service.get_inventory_paint(int(paint_id))
+        if paint is None:
+            return LocalAssistantResult("not_found", "La pintura de esta tarjeta ya no existe en el inventario.")
         current = self.query_service.paint_units(paint)
         target = int(quantity) if mode == "set" else current + (1 if mode == "add" else -1)
         if target < 0:
@@ -269,7 +309,10 @@ class AssistantLocalService:
         paint = self._active_inventory_paint()
         if paint is None:
             return LocalAssistantResult("ambiguous", "Selecciona primero una pintura inequívoca. No se ha modificado nada.")
-        result = self.paint_service.add_paint_id_to_future_purchases(int(paint.id), 1)
+        return self.add_paint_id_to_future(int(paint.id), 1)
+
+    def add_paint_id_to_future(self, paint_id: int, quantity: int = 1) -> LocalAssistantResult:
+        result = self.paint_service.add_paint_id_to_future_purchases(int(paint_id), quantity)
         local = self._from_tool_result(result)
         self.update_paint_context(local)
         return local
@@ -293,14 +336,14 @@ class AssistantLocalService:
         return self.query_service.get_inventory_paint(self.context.active_paint_id)
 
     @staticmethod
-    def _paint_actions(paint_id: int | None) -> list[dict[str, str]]:
+    def _paint_actions(paint_id: int | None) -> list[dict[str, Any]]:
         if paint_id is None:
             return []
         return [
-            {"label": "+1 unidad", "action": "paint_active_add"},
-            {"label": "-1 unidad", "action": "paint_active_remove"},
-            {"label": "Cambiar cantidad", "action": "paint_active_set"},
-            {"label": "Añadir a futuras compras", "action": "paint_active_future"},
+            {"label": "+1 unidad", "action": "paint_active_add", "paint_id": int(paint_id)},
+            {"label": "-1 unidad", "action": "paint_active_remove", "paint_id": int(paint_id)},
+            {"label": "Cambiar cantidad", "action": "paint_active_set", "paint_id": int(paint_id)},
+            {"label": "Añadir a futuras compras", "action": "paint_active_future", "paint_id": int(paint_id)},
         ]
 
     def depleted_paints(self) -> LocalAssistantResult:
@@ -320,21 +363,15 @@ class AssistantLocalService:
         return self._from_tool_result(result)
 
     def mark_paint_purchased(self, query: str, quantity: int = 1) -> LocalAssistantResult:
-        result = self.paint_service.add_paint_to_inventory(query=query, quantity=quantity)
-        if result.status != "ok":
-            return self._from_tool_result(result)
-        paint_id = (result.data or {}).get("paint", {}).get("id")
-        if paint_id is not None:
-            entry = self.paint_service.shopping_repository.get_for_paint(paint_id)
-            if entry is not None and str(getattr(entry, "stage", "") or "").casefold() == "future":
-                self.session.delete(entry)
-                self.session.commit()
-        return LocalAssistantResult(
-            "ok",
-            f"Compra registrada. Se han añadido {int(quantity)} unidad(es) al inventario y se ha retirado de Futuras compras si estaba allí.",
-            "paints",
-            {"paints": [(result.data or {}).get("paint", {})]},
-        )
+        if not normalize_entity_text(query):
+            paint = self._active_inventory_paint()
+            if paint is None:
+                return LocalAssistantResult("needs_input", "¿Qué pintura has comprado?")
+            query = str(getattr(paint, "code", None) or f"{paint.brand} {paint.name}")
+        return self._from_tool_result(self.paint_service.mark_paint_purchased(query=query, quantity=quantity))
+
+    def mark_paint_id_purchased(self, paint_id: int, quantity: int = 1) -> LocalAssistantResult:
+        return self._from_tool_result(self.paint_service.mark_paint_id_purchased(paint_id, quantity))
 
     # ------------------------------------------------------------------
     # Miniature catalog
@@ -437,6 +474,9 @@ class AssistantLocalService:
             if needle in aliases:
                 relevant.append(candidate)
                 continue
+            unit = candidate.payload
+            if normalize_entity_text(getattr(unit, "game_name", "")) != "star wars legion":
+                continue
             token_similarity = max(
                 (SequenceMatcher(None, left, right).ratio()
                  for alias in aliases for left in needle_tokens
@@ -459,9 +499,52 @@ class AssistantLocalService:
         }
         total = sum(counts.values())
         return LocalAssistantResult(
-            "ok", f"Tienes {total} miniaturas en tu colecciÃ³n.", "miniature_counts",
+            "ok", f"Tienes {total} miniaturas en tu colección.", "miniature_counts",
             {"counts": counts, "total": total},
         )
+
+    def query_miniature_collection(self, query: str = "", unfinished: bool = False) -> LocalAssistantResult:
+        entries = self.query_service.list_miniature_collection()
+        if query:
+            factions = sorted({(unit.faction_id, unit.faction_name) for unit in self._miniatures})
+            faction = self.faction_resolver.resolve(query, factions)
+            if faction is not None:
+                accepted = faction_forms(faction.faction_name)
+                entries = [entry for entry in entries if normalize_faction(getattr(entry, "faction", "")) in accepted]
+                return self._miniature_collection_result(entries, unfinished, faction.faction_name)
+            unit, matches, decision = self.resolve_miniature_with_decision(query, inventory_only=True)
+            if unit is None:
+                if matches:
+                    return LocalAssistantResult(
+                        "ambiguous", "Hay varias miniaturas que podrían coincidir.", "miniature_matches",
+                        {"matches": [item.as_dict() for item in matches], "candidates": [item.unit_name for item in matches]},
+                    )
+                return LocalAssistantResult("not_found", "No encuentro esa miniatura o facción en tu colección.")
+            entries = [entry for entry in entries if normalize_entity_text(getattr(entry, "unit_name", "")) in unit.normalized_aliases()] if hasattr(unit, "normalized_aliases") else [
+                entry for entry in entries if normalize_entity_text(getattr(entry, "unit_name", "")) == normalize_entity_text(unit.unit_name)
+            ]
+            return self._miniature_collection_result(entries, unfinished, unit.unit_name)
+        return self._miniature_collection_result(entries, unfinished, "")
+
+    def _miniature_collection_result(self, entries: list[object], unfinished: bool, label: str) -> LocalAssistantResult:
+        items = []
+        totals = {status: 0 for status in CANONICAL_STATUSES}
+        columns = {"Sin montar": "unassembled_count", "Montado": "assembled_count",
+                   "Pintado": "painted_count", "Terminado": "finished_count"}
+        for entry in entries:
+            counts = {status: _safe_int(getattr(entry, column, 0)) for status, column in columns.items()}
+            amount = sum(counts[status] for status in CANONICAL_STATUSES[:-1]) if unfinished else sum(counts.values())
+            if amount <= 0:
+                continue
+            for status, value in counts.items():
+                totals[status] += value
+            items.append({"unit": {"unit_name": getattr(entry, "unit_name", "")}, "counts": counts, "amount": amount})
+        total = sum(totals[status] for status in CANONICAL_STATUSES[:-1]) if unfinished else sum(totals.values())
+        subject = f" de {label}" if label else ""
+        message = f"Tienes {total} miniaturas{subject} por terminar." if unfinished else f"Tienes {total} miniaturas{subject} en tu colección."
+        return LocalAssistantResult("ok", message, "miniature_list", {
+            "items": items, "counts": totals, "total": total, "unfinished": unfinished, "label": label,
+        })
 
     def query_owned_entity(self, query: str) -> LocalAssistantResult:
         """Resolve conversational '<entity> tengo' without guessing its domain."""
@@ -482,6 +565,24 @@ class AssistantLocalService:
                 requires_ai_resolution=decision.should_escalate,
             )
         return paint
+
+    def query_named_entity(self, query: str) -> LocalAssistantResult | None:
+        """Resolve an isolated catalog name locally without treating general prose as an entity."""
+        faction = self.query_miniature_collection(query)
+        if faction.status == "ok":
+            return faction
+        unit, matches, decision = self.resolve_miniature_with_decision(query, inventory_only=True)
+        if unit is not None:
+            return self.miniature_counts(unit.unit_name)
+        if matches and decision.action == EscalationAction.REQUEST_SELECTION:
+            return LocalAssistantResult(
+                "ambiguous", "Hay varias miniaturas que podrían coincidir.", "miniature_matches",
+                {"matches": [item.as_dict() for item in matches],
+                 "candidates": [item.unit_name for item in matches], "raw_name": query,
+                 "operation": "counts", "confidence_level": decision.level.value,
+                 "escalation_action": decision.action.value},
+            )
+        return self.search_paint_term(query)
 
     def miniature_counts(self, query: str) -> LocalAssistantResult:
         unit, matches, decision = self.resolve_miniature_with_decision(query, inventory_only=True)
@@ -509,6 +610,9 @@ class AssistantLocalService:
                     },
                     requires_ai_resolution=True,
                 )
+            faction_result = self.query_miniature_collection(query)
+            if faction_result.status == "ok":
+                return faction_result
             return LocalAssistantResult("not_found", "No encuentro esa miniatura en tu colección de Ciros Paint.")
         try:
             counts = self._collection_counts(unit)
@@ -945,13 +1049,29 @@ class AssistantLocalService:
             "total_units": available + low,
         }
 
-    @staticmethod
-    def _from_tool_result(result) -> LocalAssistantResult:
+    def _from_tool_result(self, result) -> LocalAssistantResult:
         data = dict(getattr(result, "data", {}) or {})
         kind = "paints" if data.get("paint") or data.get("paints") else "text"
         if data.get("paint") and not data.get("paints"):
             data["paints"] = [data["paint"]]
+        if data.get("paints"):
+            data["paints"] = [self._canonical_paint_payload(item) for item in data["paints"]]
+            if data.get("paint"):
+                data["paint"] = data["paints"][0]
         return LocalAssistantResult(str(getattr(result, "status", "error")), str(getattr(result, "message", "")), kind, data)
+
+    def _canonical_paint_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        paint_id = payload.get("id")
+        paint = self.query_service.get_inventory_paint(paint_id) if paint_id is not None else None
+        return self._paint_payload(paint) if paint is not None else dict(payload)
+
+    def _future_payload(self, row: dict[str, Any]) -> dict[str, Any]:
+        entity = row[row["kind"]]
+        payload = self._paint_payload(entity) if row["kind"] == "paint" else {
+            "id": getattr(entity, "id", None), "brand": getattr(entity, "brand", None),
+            "name": getattr(entity, "name", ""), "category": getattr(entity, "category", None),
+        }
+        return {"kind": row["kind"], "quantity": row["quantity"], "entity": payload}
 
     @staticmethod
     def _load_miniature_catalog() -> list[MiniatureUnit]:

@@ -151,6 +151,8 @@ try {
     Copy-VersionOverlay "0.10.9"
     Copy-VersionOverlay "0.10.10"
 
+    Invoke-Checked python (Join-Path $repositoryRoot "tools/verify_runtime_assets.py") $stagingPath
+
     Remove-Item -LiteralPath $archivePath -Recurse -Force
 
     $checks = @{
@@ -163,6 +165,8 @@ try {
         "app/services/assistant_intent_router.py" = "AssistantLocalIntentRouter"
         "app/services/assistant_confidence_gateway.py" = "ConfidenceEscalationGateway"
         "app/services/query_service.py" = "CentralizedQueryService"
+        "app/services/favorite_paint_analysis_service.py" = "RANGE_QUALIFIER_ALIASES"
+        "app/assets/runtime_assets_manifest.json" = '"version": "0.10.10"'
         "app/ui/pages/assistant_page.py" = "owned_only=True"
         "app/ui/pages/settings_page.py" = "Requests Gemini del"
     }
@@ -176,7 +180,7 @@ try {
             throw "Verification marker missing in $($entry.Key): $($entry.Value)"
         }
     }
-    Write-Host "Ciros Paint 0.10.10 source reconstruction verified"
+    Write-Host "Ciros Paint 0.10.10 source and runtime assets verified"
 
     if (Test-Path -LiteralPath $destinationPath) {
         Move-Item -LiteralPath $destinationPath -Destination $backupPath

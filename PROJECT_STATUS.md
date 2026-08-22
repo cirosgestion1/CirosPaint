@@ -18,6 +18,12 @@ La estabilización previa al merge corrige el dimensionado dinámico del chat, a
 
 La estabilización manual posterior fija el ancho efectivo antes de calcular la altura de las burbujas, incorpora recuentos globales y términos aislados al routing local, limpia sufijos conversacionales y endurece la relevancia fuzzy de miniaturas. También admite cambios naturales de estado cuando estado, cantidad, entidad y disponibilidad se resuelven localmente sin ambigüedad.
 
+La estabilización final de 0.10.10 unifica los datos visuales canónicos de pinturas, hace visibles las flechas del selector de cantidad, añade consultas locales estrictas por facción y por miniaturas pendientes, completa las órdenes textuales de pinturas y alinea el resumen del asistente con la página real de Futuras compras, incluidos materiales. No añade esquema, dependencias ni fases posteriores.
+
+La corrección manual posterior enlaza cada acción de pintura con su ID canónico, reutiliza el flujo real de compra completada, amplía nombres aislados y typos seguros de unidades Legion y restaura para validación local los assets históricos extraídos de los EXE ya validados, sin descargas ni sustituciones.
+
+La estabilización de regresiones fija además el analizador de pinturas de Favoritos sobre el catálogo completo validado: los aliases de nombres repetidos se desambiguan mediante marca/gama, los comentarios parentéticos no contaminan la entidad y las abreviaturas se centralizan. Catálogo, logos y miniaturas pasan a formar parte del overlay reproducible de 0.10.10 con verificación SHA-256, eliminando la diferencia visual entre reconstrucción local y CI.
+
 ## Validación automática final de 0.10.8
 
 GitHub Actions run: `32475688035`
@@ -68,6 +74,14 @@ SHA-256 EXE:
 La CI verificó el ejecutable y publicó el artefacto Windows de 0.10.8.
 
 ## Catálogos y assets
+
+Desarrollo 0.10.10:
+
+- catálogo histórico validado: **2511 pinturas**, SHA-256 `1aa935e76eb12ca09dccd8db953766591e5b9d5cce774b5f008a3356e984e158`;
+- logos históricos de Citadel, Vallejo y AK Interactive recuperados idénticos de ambos EXE validados;
+- **128 assets de miniaturas** versionados y verificados como un árbol determinista;
+- `tools/rebuild_current.ps1` falla antes de publicar si falta o cambia un recurso requerido;
+- CI y reconstrucción local consumen el mismo conjunto, sin downloaders de assets.
 
 Build 0.10.8:
 

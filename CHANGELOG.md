@@ -14,6 +14,19 @@ Este archivo resume la evolución reciente del proyecto. El repositorio conserva
 - La extracción elimina texto conversacional y filtra candidatos fuzzy de miniaturas sin relación léxica antes de aplicar confianza.
 - Las frases naturales de montaje, pintado y terminado aceptan cantidades numéricas o palabras cuando la operación es inequívoca y viable.
 - Las burbujas fijan su ancho efectivo antes de aplicar la altura completa del contenido envuelto.
+- Los payloads de pinturas se rehidratan desde el ID canónico, preservando siempre el mismo `swatch_hex`.
+- Las flechas del selector de cantidad se dibujan con contraste explícito sin alterar los subcontroles nativos.
+- Las consultas por facción y por estado pendiente se resuelven localmente con aliases centralizados y datos reales.
+- El parser controlado amplía variantes de estado y órdenes locales de inventario y compras de pinturas.
+- Futuras compras comparte una lectura de pinturas, reposición automática y materiales entre página y asistente.
+- Se corrige el literal UTF-8 corrupto que mostraba `colecciÃ³n`.
+- Las acciones de cada tarjeta de pintura conservan su `paint_id` y ya no dependen de la última entidad global de la conversación.
+- La compra completada reutiliza `ShoppingRepository.mark_purchased`, conserva la identidad canónica y retira la entrada futura asociada al mismo ID.
+- Los nombres aislados y errores tipográficos seguros de unidades Legion, junto con aliases estrictos de varias facciones, se resuelven localmente.
+- Se documenta y cubre la restauración de los 128 assets históricos idénticos empaquetados en los EXE validados.
+- El analizador de descripciones conserva aliases ambiguos y los resuelve con contexto de marca/gama; limpia comentarios parentéticos y reconoce abreviaturas centralizadas como `VMC` sin mezclar identificación con el umbral de alternativas.
+- La reconstrucción incorpora el catálogo validado de 2511 pinturas, los tres logos de marca y los 128 assets de miniaturas recuperados de ambos EXE 0.10.10, todos protegidos por hashes deterministas.
+- CI deja de descargar/regenerar catálogo y assets en cada build y verifica exactamente el mismo conjunto histórico que la reconstrucción local.
 
 ### Añadido
 
@@ -32,7 +45,9 @@ Este archivo resume la evolución reciente del proyecto. El repositorio conserva
 
 - Reconstrucción completa 0.10.10: **OK**.
 - Sin cambios de esquema ni migraciones.
-- Pruebas focalizadas de estabilización del asistente: **20 tests OK**.
+- Pruebas focalizadas del analizador y assets: **28 tests OK**.
+- Suite completa: **195 tests OK**.
+- Smoke PySide6 offscreen y smoke GUI Qt real: **OK**.
 
 ## 0.10.9 - 21/08/2026
 
